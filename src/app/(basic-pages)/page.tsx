@@ -75,6 +75,10 @@ export default function Page() {
         <div
           className={`relative bg-white ${BORDER_CONTAINER} !border-t-0 py-16 md:py-32 z-10 flex flex-col gap-3 p-4 justify-center items-center`}
         >
+          <span className="rounded-full px-4 py-1 bg-neutral-200 text-xs outline outline-neutral-400">
+            Beta version
+          </span>
+
           <motion.h1
             className="text-neutral-800 text-center"
             variants={staggerContainer}
