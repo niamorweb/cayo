@@ -209,7 +209,7 @@ li {
 }
 
 .settings-layout-page {
-  @apply w-full max-w-[700px] mx-auto p-6;
+  @apply w-full max-w-[700px] mx-auto p-6 h-fit;
 }
 
 .hero-pattern {

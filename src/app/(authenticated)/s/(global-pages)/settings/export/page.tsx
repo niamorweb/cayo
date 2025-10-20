@@ -6,8 +6,8 @@ export default function Page() {
   return (
     <CardDisplay
       href={"/s/settings"}
-      title="Export / Import"
-      description="Export or import data."
+      title="Export"
+      description="Export your private vault password in CSS or JSON file."
     >
       <div className="flex flex-col gap-3">
         <p className="text-sm">Not available yet.</p>

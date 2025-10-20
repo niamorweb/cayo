@@ -1,5 +1,5 @@
 "use client";
-import { User, Shield, Download } from "lucide-react";
+import { User, Shield, Download, Share } from "lucide-react";
 import { usePathname } from "next/navigation";
 import GlobalLayoutPage from "@/components/global/global-layout-page";
 import ItemLeftDisplay from "@/components/global/item-left-display";
@@ -9,7 +9,7 @@ const NAV_ITEMS = [
   {
     name: "Account",
     icon: User,
-    description: "Manage your account informations",
+    description: "Manage your account informations.",
     href: "/s/settings/account",
   },
   {
@@ -19,10 +19,16 @@ const NAV_ITEMS = [
     href: "/s/settings/security",
   },
   {
-    name: "Export/Import",
+    name: "Export",
+    icon: Share,
+    description: "Export your private vault password in CSS or JSON file.",
+    href: "/s/settings/export",
+  },
+  {
+    name: "Import",
     icon: Download,
-    description: "Export or import data",
-    href: "/s/settings/export-import",
+    description: "Import password in your private vault.",
+    href: "/s/settings/import",
   },
 ];
 

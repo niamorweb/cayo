@@ -35,6 +35,7 @@ import { Separator } from "@/components/ui/separator";
 import { fetchAndDecryptOrganizations } from "@/lib/fetchAndDecryptOrganizations.ts";
 import { toast } from "sonner";
 import SharePassword from "../secure-send/action-share-password";
+import { Badge } from "../ui/badge";
 
 export default function PasswordSelected({
   selectedPassword,
@@ -220,12 +221,7 @@ export default function PasswordSelected({
                 type="text"
               />
               {selectedPassword.group_name && (
-                <div className="px-[6px] py-[2px] flex items-center gap-1 rounded-sm duration-150 text-xs text-neutral-700 outline outline-neutral-700/30 flex-grow font-medium">
-                  <div className="bg-primary/10 rounded-full flex items-center justify-center p-[2px]">
-                    <div className="size-3 bg-primary rounded-full"></div>
-                  </div>
-                  {selectedPassword.group_name}
-                </div>
+                <Badge>{selectedPassword.group_name}</Badge>
               )}
             </div>
             <Separator />

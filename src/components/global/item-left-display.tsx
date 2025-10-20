@@ -2,8 +2,10 @@
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import React from "react";
+import { Badge } from "../ui/badge";
 
 interface ItemLeftDisplayProps {
+  badge?: React.ReactNode;
   index?: number;
   name: string;
   description: string;
@@ -15,6 +17,7 @@ interface ItemLeftDisplayProps {
 }
 
 export default function ItemLeftDisplay({
+  badge,
   index,
   name,
   description,
@@ -33,6 +36,7 @@ export default function ItemLeftDisplay({
         <div className="relative flex flex-col justify-start items-start gap-1">
           <div className="flex items-center gap-3">
             <span className="text-left flex-grow font-medium">{name}</span>
+            {badge && <Badge>{badge}</Badge>}
           </div>
           <span
             className={`flex-grow text-left ${

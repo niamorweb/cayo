@@ -1,5 +1,12 @@
 "use client";
-import { Users, Grid2X2Plus, Grid2X2, UserPlus, Building } from "lucide-react";
+import {
+  Users,
+  Grid2X2Plus,
+  Grid2X2,
+  UserPlus,
+  Building,
+  Upload,
+} from "lucide-react";
 import { useParams, usePathname } from "next/navigation";
 import { useOrganizationStore } from "@/lib/store/organizationStore";
 import GlobalLayoutPage from "@/components/global/global-layout-page";
@@ -46,6 +53,13 @@ export default function Layout({ children }: any) {
       icon: Grid2X2,
       description: "Create and manage organizations groups",
       href: `${baseSettingsPath}/groups`,
+      roleAccess: ["admin", "manager"],
+    },
+    {
+      name: "Import",
+      icon: Upload,
+      description: "Import password in the organization.",
+      href: `${baseSettingsPath}/import`,
       roleAccess: ["admin", "manager"],
     },
     {

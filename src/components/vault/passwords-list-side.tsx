@@ -42,9 +42,11 @@ export default function PasswordsListSide({
     passwords &&
     passwords?.filter(
       (password: any) =>
-        password.name.includes(search) ||
-        password.username?.includes(search) ||
-        (password.source === "group" && password.group_name?.includes(search))
+        password.name.toLowerCase().includes(search.toLowerCase()) ||
+        password.group_name?.toLowerCase().includes(search.toLowerCase()) ||
+        password.username?.toLowerCase().includes(search.toLowerCase()) ||
+        (password.source === "group" &&
+          password.group_name?.includes(search.toLowerCase()))
     );
 
   const handleDeleteAll = async () => {
@@ -146,33 +148,40 @@ export default function PasswordsListSide({
               }`}
             >
               {filteredPasswords &&
-                filteredPasswords.map((password: any, index: number) => (
-                  <ItemLeftDisplay
-                    key={index}
-                    name={password.name}
-                    description={password.username}
-                    illustration={
-                      password.url ? (
-                        <Image
-                          src={getLogoUrl(password.url)}
-                          width={24}
-                          height={24}
-                          alt=""
-                        />
-                      ) : (
-                        <Globe className="stroke-[1px]" />
-                      )
-                    }
-                    icon={
-                      <ChevronRight className=" absolute top-1/2 right-2 -translate-y-1/2 size-6 stroke-[1px]" />
-                    }
-                    isItemActive={selectedPassword?.id === password.id}
-                    onClick={() => {
-                      setSelectedPassword(password);
-                      setDisplayMode("edit-password");
-                    }}
-                  />
-                ))}
+                filteredPasswords
+                  .sort((a: any, b: any) =>
+                    (a.name || "").localeCompare(b.name || "", undefined, {
+                      sensitivity: "base",
+                    })
+                  )
+                  .map((password: any, index: number) => (
+                    <ItemLeftDisplay
+                      key={index}
+                      name={password.name}
+                      description={password.username}
+                      badge={password.group_name && password.group_name}
+                      illustration={
+                        password.url ? (
+                          <Image
+                            src={getLogoUrl(password.url)}
+                            width={24}
+                            height={24}
+                            alt=""
+                          />
+                        ) : (
+                          <Globe className="stroke-[1px]" />
+                        )
+                      }
+                      icon={
+                        <ChevronRight className=" absolute top-1/2 right-2 -translate-y-1/2 size-6 stroke-[1px]" />
+                      }
+                      isItemActive={selectedPassword?.id === password.id}
+                      onClick={() => {
+                        setSelectedPassword(password);
+                        setDisplayMode("edit-password");
+                      }}
+                    />
+                  ))}
               {!isTrash && (
                 <button
                   onClick={() => setDisplayMode("create-password")}
