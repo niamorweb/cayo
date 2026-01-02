@@ -12,15 +12,17 @@ export default function ClientPage({ organizationId }: PasswordsListProps) {
     s.organizations.find((org) => org.id === organizationId)
   );
 
-  const passwords =
-    currentOrganization &&
-    currentOrganization.all_passwords &&
-    currentOrganization.all_passwords.filter((x: any) => x.trash === false);
+  // On filtre les mots de passe et on s'assure que c'est un tableau (même vide)
+  const passwords = currentOrganization?.all_passwords
+    ? currentOrganization.all_passwords.filter((x: any) => x.trash === false)
+    : [];
 
   return (
     <PasswordsListSide
       passwords={passwords}
-      currentOrganization={currentOrganization}
+      // @ts-ignore
+      currentOrganization={currentOrganization ?? null}
+      isTrash={false}
     />
   );
 }

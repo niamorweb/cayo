@@ -38,7 +38,7 @@ interface Organization {
 
 interface CreatePasswordProps {
   currentOrganization: Organization | null;
-  setDisplayMode: (mode: "none" | "create" | "edit") => void;
+  setDisplayMode: (mode: "none" | "create-password" | "edit-password") => void;
 }
 
 export default function CreatePasswordInterface({
