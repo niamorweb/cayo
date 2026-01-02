@@ -1,4 +1,5 @@
 "use client";
+
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -7,37 +8,60 @@ import { getLogoUrl } from "@/lib/getLogoUrl";
 import { Copy, Eye, Globe } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 
-export default function ClientSide({ secureSend }: any) {
+// On définit une interface pour le secureSend
+interface SecureSendProps {
+  secureSend: {
+    iv: string;
+    name: string;
+    username: string;
+    password: string;
+    website_url: string;
+    note: string;
+    text: string;
+    type: "text" | "credential";
+  };
+}
+
+export default function ClientSide({ secureSend }: SecureSendProps) {
+  const [showPassword, setShowPassword] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Sécurité pour Next.js : s'assurer que window est disponible
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) return null;
+
+  // Récupération de la clé depuis le hash (#abc...)
   const key = window.location.hash.substring(1);
 
-  const [showPassword, setShowPassword] = useState(false);
-
+  // --- Correction du IV ---
+  // Au lieu de Array.from, on garde le format Buffer ou Uint8Array
+  // que decryptText attend (généralement Uint8Array en environnement web)
   const ivBuffer = Buffer.from(secureSend.iv, "base64");
-  const ivArray = Array.from(ivBuffer);
+  const ivUint8 = new Uint8Array(ivBuffer);
 
+  // Si decryptText attend une string hexadécimale ou base64, passez secureSend.iv directement.
+  // Mais si elle attend l'IV brut, Uint8Array est la norme.
   const lisibleSecureSend = {
-    name: decryptText(secureSend.name, key, ivArray),
-    username: decryptText(secureSend.username, key, ivArray),
-    password: decryptText(secureSend.password, key, ivArray),
-    url: decryptText(secureSend.website_url, key, ivArray),
-    note: decryptText(secureSend.note, key, ivArray),
-    text: decryptText(secureSend.text, key, ivArray),
+    name: decryptText(secureSend.name, key, ivUint8 as any), // Le 'as any' aide si votre lib est typée strictement string
+    username: decryptText(secureSend.username, key, ivUint8 as any),
+    password: decryptText(secureSend.password, key, ivUint8 as any),
+    url: decryptText(secureSend.website_url, key, ivUint8 as any),
+    note: decryptText(secureSend.note, key, ivUint8 as any),
+    text: decryptText(secureSend.text, key, ivUint8 as any),
   };
+
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
       toast.success("Copied !");
     } catch (error) {
-      const textArea = document.createElement("textarea");
-      textArea.value = text;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textArea);
-      toast.success("Copied !");
+      toast.error("Failed to copy");
     }
   };
 

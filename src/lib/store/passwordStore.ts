@@ -12,6 +12,8 @@ export type Password = {
   folder_id: string | null;
   trash: boolean;
   iv: string;
+  modified_at?: string;
+  folder?: any;
 };
 
 export type Folder = {

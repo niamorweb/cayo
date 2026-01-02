@@ -67,7 +67,7 @@ interface PasswordData {
 
 interface Organization {
   id: string;
-  user_role: string;
+  user_role?: string;
   decrypted_aes_key: string;
 }
 

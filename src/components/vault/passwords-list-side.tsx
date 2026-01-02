@@ -30,7 +30,7 @@ import ItemLeftDisplay from "../global/item-left-display";
 
 // --- Interfaces ---
 
-interface PasswordItem {
+export interface PasswordItem {
   id: string;
   name: string;
   username: string;
@@ -38,12 +38,12 @@ interface PasswordItem {
   group_name?: string;
   group_id?: string | null;
   source?: "organization" | "group";
-  modified_at: string;
+  modified_at?: string;
 }
 
-interface Organization {
+export interface Organization {
   id: string;
-  user_role: string;
+  user_role?: string;
   decrypted_aes_key: string;
 }
 
