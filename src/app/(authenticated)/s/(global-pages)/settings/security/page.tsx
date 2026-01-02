@@ -154,6 +154,7 @@ export default function Page() {
     setError("");
     setIsLoading(true);
 
+    if (!auth) return;
     try {
       const aesKey = decryptedAesKey;
 
@@ -174,7 +175,7 @@ export default function Page() {
 
       const { data, error: signInError } =
         await supabase.auth.signInWithPassword({
-          email: auth.email,
+          email: auth.email!,
           password: oldPassword,
         });
 
