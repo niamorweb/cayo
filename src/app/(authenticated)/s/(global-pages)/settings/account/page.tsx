@@ -8,6 +8,14 @@ import CardDisplay from "@/components/global/card-display";
 export default function Page() {
   const auth = useAuthStore((s) => s.user);
 
+  if (!auth) {
+    return (
+      <div className="p-8 text-center text-sm text-neutral-500">
+        Loading account...
+      </div>
+    );
+  }
+
   return (
     <CardDisplay
       href={"/s/settings"}
@@ -21,7 +29,8 @@ export default function Page() {
             <Input
               disabled
               id="current-email"
-              value={auth.email}
+              // auth.email est maintenant garanti ici
+              value={auth.email ?? ""}
               required
               className="pr-10"
             />
