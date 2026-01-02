@@ -1,4 +1,5 @@
 "use client";
+
 import { useOrganizationStore } from "@/lib/store/organizationStore";
 import { createClient } from "./supabase/client";
 import {
@@ -10,20 +11,75 @@ import { decryptText } from "./encryption/text";
 import { getFaviconUrl } from "./get-flavicon-url";
 import { parse } from "path";
 
+// --- Types Techniques ---
+
+interface RawPassword {
+  id: string;
+  created_at: string;
+  iv: string;
+  name: string;
+  password: string;
+  username: string;
+  note: string;
+  url: string;
+  folder: string | null;
+  trash: boolean;
+  modified_at: string;
+  isOwnPassword?: boolean;
+  email?: string;
+}
+
+interface RawGroup {
+  id: string;
+  name: string;
+  user_role: "group_admin" | "member";
+  joined_at: string;
+}
+
+// Type dynamique basé sur le retour de la fonction de déchiffrement
+type DecryptedPassword = ReturnType<typeof decryptPasswordHelper>;
+
+interface DecryptedGroup extends RawGroup {
+  passwords: DecryptedPassword[];
+}
+
+// --- Cache & Global State ---
+
 let fetchPromise: Promise<void> | null = null;
 let lastFetchTime = 0;
 const CACHE_DURATION = 10000;
 
+/**
+ * Helper de déchiffrement typé
+ */
+function decryptPasswordHelper(x: RawPassword, decryptedOrgAesKey: string) {
+  const decryptedUrl = x.url
+    ? decryptText(x.url, decryptedOrgAesKey, x.iv)
+    : null;
+
+  return {
+    id: x.id,
+    created_at: x.created_at,
+    iv: x.iv,
+    name: decryptText(x.name, decryptedOrgAesKey, x.iv),
+    password: decryptText(x.password, decryptedOrgAesKey, x.iv),
+    username: decryptText(x.username, decryptedOrgAesKey, x.iv),
+    note: decryptText(x.note, decryptedOrgAesKey, x.iv),
+    url: decryptedUrl,
+    flavicon: decryptedUrl ? getFaviconUrl(parse(decryptedUrl)) : null,
+    folder: x.folder,
+    trash: x.trash,
+    modified_at: x.modified_at,
+    is_own_password: x.isOwnPassword,
+    email: x.email,
+  };
+}
+
 export async function fetchAndDecryptOrganizations(forceRefresh = false) {
   const now = Date.now();
 
-  if (fetchPromise && !forceRefresh) {
-    return fetchPromise;
-  }
-
-  if (!forceRefresh && now - lastFetchTime < CACHE_DURATION) {
-    return;
-  }
+  if (fetchPromise && !forceRefresh) return fetchPromise;
+  if (!forceRefresh && now - lastFetchTime < CACHE_DURATION) return;
 
   fetchPromise = (async () => {
     const decryptedAesKey = useAuthStore.getState().decryptedAesKey;
@@ -75,29 +131,6 @@ export async function fetchAndDecryptOrganizations(forceRefresh = false) {
       return;
     }
 
-    const decryptPassword = (x: any, decryptedOrgAesKey: string) => {
-      const decryptedUrl = x.url
-        ? decryptText(x.url, decryptedOrgAesKey, x.iv)
-        : null;
-
-      return {
-        id: x.id,
-        created_at: x.created_at,
-        iv: x.iv,
-        name: decryptText(x.name, decryptedOrgAesKey, x.iv),
-        password: decryptText(x.password, decryptedOrgAesKey, x.iv),
-        username: decryptText(x.username, decryptedOrgAesKey, x.iv),
-        note: decryptText(x.note, decryptedOrgAesKey, x.iv),
-        url: decryptedUrl,
-        flavicon: x.url ? getFaviconUrl(parse(decryptedUrl!)) : null,
-        folder: x.folder,
-        trash: x.trash,
-        modified_at: x.modified_at,
-        is_own_password: x.isOwnPassword,
-        email: x.email,
-      };
-    };
-
     const orgsPromises = organizationsMembers.map(async (member) => {
       try {
         const [orgFromFetch, decryptedOrgAesKey] = await Promise.all([
@@ -115,72 +148,63 @@ export async function fetchAndDecryptOrganizations(forceRefresh = false) {
           fetch(`/api/org/${orgFromFetch.id}/groups`),
         ]);
 
-        if (!passwordsResponse.ok) {
-          throw new Error("Erreur lors de la récupération des passwords");
-        }
-
         const { passwords: passwordsData } = await passwordsResponse.json();
-        const passwordsLisibles =
-          passwordsData?.map((x: any) =>
-            decryptPassword(x, decryptedOrgAesKey)
+        const passwordsLisibles: DecryptedPassword[] =
+          (passwordsData as RawPassword[])?.map((x) =>
+            decryptPasswordHelper(x, decryptedOrgAesKey)
           ) || [];
 
-        let groups = [];
+        let groups: DecryptedGroup[] = []; // Correction ts(7034)
 
         if (groupsResponse.ok) {
           const groupsData = await groupsResponse.json();
 
-          const groupsPromises = groupsData.groups.map(async (group: any) => {
-            try {
-              const groupPasswordsResponse = await fetch(
-                `/api/org/${orgFromFetch.id}/groups/${group.id}/passwords`
-              );
+          const groupsPromises = (groupsData.groups as RawGroup[]).map(
+            async (group): Promise<DecryptedGroup> => {
+              try {
+                const groupPasswordsResponse = await fetch(
+                  `/api/org/${orgFromFetch.id}/groups/${group.id}/passwords`
+                );
 
-              let groupPasswords = [];
+                let groupPasswords: DecryptedPassword[] = []; // Correction ts(7034)
 
-              if (groupPasswordsResponse.ok) {
-                const { passwords } = await groupPasswordsResponse.json();
-                groupPasswords =
-                  passwords?.map((x: any) =>
-                    decryptPassword(x, decryptedOrgAesKey)
-                  ) || [];
+                if (groupPasswordsResponse.ok) {
+                  const { passwords } = await groupPasswordsResponse.json();
+                  groupPasswords =
+                    (passwords as RawPassword[])?.map((x) =>
+                      decryptPasswordHelper(x, decryptedOrgAesKey)
+                    ) || [];
+                }
+
+                return {
+                  ...group,
+                  passwords: groupPasswords,
+                };
+              } catch (error) {
+                return {
+                  ...group,
+                  passwords: [],
+                };
               }
-
-              return {
-                id: group.id,
-                name: group.name,
-                user_role: group.user_role,
-                joined_at: group.joined_at,
-                passwords: groupPasswords,
-              };
-            } catch (error) {
-              console.error(`Error processing group ${group.id}:`, error);
-              return {
-                id: group.id,
-                name: group.name,
-                user_role: group.user_role,
-                joined_at: group.joined_at,
-                passwords: [],
-              };
             }
-          });
+          );
 
           groups = await Promise.all(groupsPromises);
         }
 
         const allPasswords = [
-          ...passwordsLisibles.map((p: any) => ({
+          ...passwordsLisibles.map((p) => ({
             ...p,
             group_id: null,
             group_name: null,
-            source: "organization",
+            source: "organization" as const,
           })),
           ...groups.flatMap((group) =>
-            group.passwords.map((p: any) => ({
+            group.passwords.map((p) => ({
               ...p,
               group_id: group.id,
               group_name: group.name,
-              source: "group",
+              source: "group" as const,
             }))
           ),
         ];
@@ -194,16 +218,15 @@ export async function fetchAndDecryptOrganizations(forceRefresh = false) {
           all_passwords: allPasswords,
         };
       } catch (error) {
-        console.error(
-          `Error processing organization ${member.organization_id}:`,
-          error
-        );
+        console.error(`Error processing org ${member.organization_id}:`, error);
         return null;
       }
     });
 
     const allOrgs = await Promise.all(orgsPromises);
-    const validOrgs = allOrgs.filter(Boolean);
+    const validOrgs = allOrgs.filter(
+      (org): org is NonNullable<typeof org> => org !== null
+    );
 
     setOrganizations(validOrgs);
     lastFetchTime = Date.now();
@@ -221,7 +244,7 @@ const getOrganization = async (organizationId: string) => {
 
   if (!response.ok) {
     const errorData = await response.json();
-    throw new Error(errorData.error || "Erreur lors de la récupération");
+    throw new Error(errorData.error || "Fetch failed");
   }
 
   const data = await response.json();

@@ -223,15 +223,6 @@ export default function Page() {
               Cayo brings real password security to families and everyday groups
               — without complexity, without cost. Just privacy that works.
             </motion.p>
-            {/* <motion.p
-              className="text-neutral-700 text-center"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.6 }}
-              viewport={{ once: true }}
-            >
-              Built by niamorweb
-            </motion.p> */}
           </motion.div>
         </div>
       </MotionSection>

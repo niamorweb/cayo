@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { decryptText } from "@/lib/encryption/text";
@@ -36,60 +35,53 @@ type SecureSendStore = {
   reset: () => void;
 };
 
-export const useSecureSendStore = create<SecureSendStore>()(
-  persist(
-    (set, get) => ({
-      secureSends: [],
-      isLoading: false,
+export const useSecureSendStore = create<SecureSendStore>((set, get) => ({
+  secureSends: [],
+  isLoading: false,
 
-      fetchSecureSends: async () => {
-        const supabase = createClient();
-        const auth = useAuthStore.getState().user;
-        const originalAesKey = useAuthStore.getState().decryptedAesKey;
+  fetchSecureSends: async () => {
+    const supabase = createClient();
+    const auth = useAuthStore.getState().user;
+    const originalAesKey = useAuthStore.getState().decryptedAesKey;
 
-        if (!auth?.id || !originalAesKey) return;
+    if (!auth?.id || !originalAesKey) return;
 
-        set({ isLoading: true });
+    set({ isLoading: true });
 
-        const { data, error } = await supabase
-          .from("secure_send")
-          .select("*")
-          .eq("user_id", auth.id);
+    const { data, error } = await supabase
+      .from("secure_send")
+      .select("*")
+      .eq("user_id", auth.id);
 
-        if (error) {
-          toast.error("Failed to load secure sends");
-          set({ isLoading: false });
-          return;
-        }
-
-        const decrypted = data.map((item) => {
-          const itemKeyDecrypted = decryptAESKey(
-            item.encrypted_aes_key,
-            item.iv,
-            item.salt,
-            originalAesKey
-          );
-
-          return {
-            ...item,
-            name: decryptText(item.name, itemKeyDecrypted, item.iv),
-            text: decryptText(item.text, itemKeyDecrypted, item.iv),
-            username: decryptText(item.username, itemKeyDecrypted, item.iv),
-            password: decryptText(item.password, itemKeyDecrypted, item.iv),
-            url: decryptText(item.website_url, itemKeyDecrypted, item.iv),
-            note: decryptText(item.note, itemKeyDecrypted, item.iv),
-            created_at_clean: formatFullDate(item.created_at),
-            link: `${window.location.origin}/secure-send/${item.id}#${itemKeyDecrypted}`,
-          };
-        });
-
-        set({ secureSends: decrypted, isLoading: false });
-      },
-
-      reset: () => set({ secureSends: [], isLoading: false }),
-    }),
-    {
-      name: "secure-send-store",
+    if (error) {
+      toast.error("Failed to load secure sends");
+      set({ isLoading: false });
+      return;
     }
-  )
-);
+
+    const decrypted = data.map((item) => {
+      const itemKeyDecrypted = decryptAESKey(
+        item.encrypted_aes_key,
+        item.iv,
+        item.salt,
+        originalAesKey
+      );
+
+      return {
+        ...item,
+        name: decryptText(item.name, itemKeyDecrypted, item.iv),
+        text: decryptText(item.text, itemKeyDecrypted, item.iv),
+        username: decryptText(item.username, itemKeyDecrypted, item.iv),
+        password: decryptText(item.password, itemKeyDecrypted, item.iv),
+        url: decryptText(item.website_url, itemKeyDecrypted, item.iv),
+        note: decryptText(item.note, itemKeyDecrypted, item.iv),
+        created_at_clean: formatFullDate(item.created_at),
+        link: `${window.location.origin}/secure-send/${item.id}#${itemKeyDecrypted}`,
+      };
+    });
+
+    set({ secureSends: decrypted, isLoading: false });
+  },
+
+  reset: () => set({ secureSends: [], isLoading: false }),
+}));

@@ -1,4 +1,10 @@
 "use client";
+
+import React, { useEffect, useState, useCallback } from "react";
+import { useParams } from "next/navigation";
+import { LogOut } from "lucide-react";
+import { toast } from "sonner";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,23 +25,29 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useOrganizationStore } from "@/lib/store/organizationStore";
-import { LogOut } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import { toast } from "sonner";
 import CardDisplay from "@/components/global/card-display";
 
-export default function Page() {
+// --- Typage des membres ---
+interface OrgMember {
+  id: string; // Changé en string pour cohérence avec deleteMember(member.id)
+  user_id: string;
+  email: string;
+  role: "admin" | "manager" | "user";
+  has_accepted: boolean;
+}
+
+export default function ManageMembersPage() {
   const params = useParams();
   const orgId = params.orgId as string;
 
-  const [membersList, setMembersList] = useState<any[]>([]);
+  const [membersList, setMembersList] = useState<OrgMember[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   const currentOrganization = useOrganizationStore((s) =>
     s.organizations.find((org) => org.id === orgId)
   );
 
-  const fetchOrganizationMembers = async () => {
+  const fetchOrganizationMembers = useCallback(async () => {
     try {
       const response = await fetch(`/api/org/${orgId}/list-members`);
 
@@ -45,18 +57,18 @@ export default function Page() {
       }
 
       const data = await response.json();
-      setMembersList(data.members);
+      setMembersList(data.members as OrgMember[]);
     } catch (error) {
       console.error("Error fetching members:", error);
       toast.error("Failed to load members");
     }
-  };
+  }, [orgId]);
 
   useEffect(() => {
     fetchOrganizationMembers();
-  }, [orgId]);
+  }, [fetchOrganizationMembers]);
 
-  const handleRoleChange = async (memberId: number, newRole: string) => {
+  const handleRoleChange = async (memberId: string, newRole: string) => {
     try {
       const response = await fetch(`/api/org/${orgId}/member/${memberId}`, {
         method: "PUT",
@@ -76,7 +88,9 @@ export default function Page() {
       toast.success("Role updated successfully!");
       setMembersList((prev) =>
         prev.map((member) =>
-          member.id === memberId ? { ...member, role: newRole } : member
+          member.id === memberId
+            ? { ...member, role: newRole as OrgMember["role"] }
+            : member
         )
       );
     } catch (error) {
@@ -86,6 +100,7 @@ export default function Page() {
   };
 
   const deleteMember = async (memberId: string) => {
+    setIsLoading(true);
     try {
       const response = await fetch(`/api/org/${orgId}/member/${memberId}`, {
         method: "DELETE",
@@ -103,6 +118,8 @@ export default function Page() {
     } catch (error) {
       console.error("Error removing member:", error);
       toast.error("Network error");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -116,36 +133,42 @@ export default function Page() {
       description="Manage members in your organization"
     >
       {membersList.length > 0 ? (
-        membersList.map((member) => (
-          <div
-            key={member.id}
-            className={`hover:bg-neutral-100 duration-150 rounded-2xl flex items-center p-3 justify-between ${
-              isCurrentUser(member.id) ? "bg-neutral-50" : ""
-            }`}
-          >
-            <div className="flex flex-col gap-1">
-              <div className="text-sm">{member.email}</div>
-              {!member.has_accepted && (
-                <div className="px-[6px] w-fit py-[2px] flex items-center gap-1 rounded-2xl text-xs text-orange-600 outline outline-orange-600/30 font-medium">
-                  <div className="bg-orange-600/10 rounded-full flex items-center justify-center p-[2px]">
-                    <div className="size-3 bg-orange-600 rounded-full"></div>
-                  </div>
-                  Pending
+        <div className="space-y-2">
+          {membersList.map((member) => (
+            <div
+              key={member.id}
+              className={`hover:bg-neutral-100 duration-150 rounded-2xl flex items-center p-3 justify-between border border-transparent ${
+                isCurrentUser(member.id)
+                  ? "bg-neutral-50 border-neutral-200"
+                  : ""
+              }`}
+            >
+              <div className="flex flex-col gap-1">
+                <div className="text-sm font-medium text-neutral-900">
+                  {member.email}
                 </div>
-              )}
-            </div>
-            <div className="flex items-center gap-3">
-              {currentOrganization &&
-                currentOrganization.user_role === "admin" && (
+                {!member.has_accepted && (
+                  <div className="px-2 w-fit py-0.5 flex items-center gap-1.5 rounded-full text-[10px] text-orange-600 outline outline-orange-600/20 bg-orange-50 font-bold uppercase tracking-wider">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+                    </span>
+                    Pending
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                {currentOrganization?.user_role === "admin" && (
                   <Select
-                    disabled={isCurrentUser(member.id)}
+                    disabled={isCurrentUser(member.id) || isLoading}
                     onValueChange={(newRole) =>
                       handleRoleChange(member.id, newRole)
                     }
                     value={member.role}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a role" />
+                    <SelectTrigger className="w-[110px] h-9">
+                      <SelectValue placeholder="Role" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="admin">Admin</SelectItem>
@@ -155,39 +178,49 @@ export default function Page() {
                   </Select>
                 )}
 
-              {isCurrentUser(member.id) ? (
-                <div className="w-10"></div>
-              ) : (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="icon">
-                      <LogOut />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Remove this member?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. This will permanently
-                        remove this member from your organization.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => deleteMember(member.id)}
+                {isCurrentUser(member.id) ? (
+                  <div className="w-10 flex justify-center text-[10px] font-bold text-neutral-400 uppercase">
+                    You
+                  </div>
+                ) : (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-neutral-400 hover:text-red-600 transition-colors"
                       >
-                        Yes, remove
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
+                        <LogOut size={18} />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Remove this member?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently
+                          remove <b>{member.email}</b> from your organization.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-red-600 hover:bg-red-700"
+                          onClick={() => deleteMember(member.id)}
+                        >
+                          Yes, remove
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+              </div>
             </div>
-          </div>
-        ))
+          ))}
+        </div>
       ) : (
-        <div>No member found</div>
+        <div className="py-10 text-center text-sm text-neutral-500">
+          No members found
+        </div>
       )}
     </CardDisplay>
   );

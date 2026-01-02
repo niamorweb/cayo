@@ -32,7 +32,6 @@ export default function PasswordsListSide({
   const [activeModal, setActiveModal] = useState<any>(null);
   const [search, setSearch] = useState("");
   const [selectedPassword, setSelectedPassword] = useState<any>(null);
-  const [isSettingsActive, setIsSettingsActive] = useState(false);
   const [displayCreateInterface, setDisplayCreateInterface] = useState(false);
   const [displayMode, setDisplayMode] = useState<
     "none" | "create-password" | "edit-password"

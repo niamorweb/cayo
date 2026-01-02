@@ -5,15 +5,21 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { useOrganizationStore } from "@/lib/store/organizationStore";
 import { useAuthStore } from "@/lib/store/useAuthStore";
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
 import CardDisplay from "@/components/global/card-display";
 import { fetchAndDecryptOrganizations } from "@/lib/fetchAndDecryptOrganizations.ts";
 
-interface OrgMember {
+interface OrgMemberOption {
   value: string;
   label: string;
+  user_id: string;
+}
+
+interface RawMember {
+  id: string;
+  email: string;
   user_id: string;
 }
 
@@ -25,14 +31,14 @@ export default function Page() {
   const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
-  const [orgMembers, setOrgMembers] = useState<OrgMember[]>([]);
+  const [orgMembers, setOrgMembers] = useState<OrgMemberOption[]>([]);
   const [multiSelectKey, setMultiSelectKey] = useState(0);
 
-  const currentOrganization = useOrganizationStore((s) =>
-    s.organizations.find((org) => org.id === orgId)
-  );
+  // Utilisation de useCallback pour stabiliser la fonction
+  const fetchOrganizationMembers = useCallback(async () => {
+    // Sécurité : on n'exécute pas si l'utilisateur n'est pas authentifié
+    if (!auth?.id) return;
 
-  const fetchOrganizationMembers = async () => {
     try {
       const response = await fetch(`/api/org/${orgId}/list-members`);
 
@@ -42,9 +48,11 @@ export default function Page() {
       }
 
       const data = await response.json();
-      const formattedMembers = data.members
-        .filter((member: any) => member.user_id !== auth.id)
-        .map((member: any) => ({
+
+      // Typage strict ici au lieu de any
+      const formattedMembers: OrgMemberOption[] = (data.members as RawMember[])
+        .filter((member) => member.user_id !== auth.id) // auth.id est maintenant sûr ici
+        .map((member) => ({
           value: member.id,
           label: member.email,
           user_id: member.user_id,
@@ -55,7 +63,7 @@ export default function Page() {
       console.error("Error fetching members:", error);
       toast.error("Failed to load members");
     }
-  };
+  }, [orgId, auth?.id]);
 
   const createGroup = async () => {
     const trimmedName = name.trim();
@@ -96,10 +104,10 @@ export default function Page() {
   };
 
   useEffect(() => {
-    if (orgId) {
+    if (orgId && auth?.id) {
       fetchOrganizationMembers();
     }
-  }, [orgId]);
+  }, [orgId, auth?.id, fetchOrganizationMembers]);
 
   return (
     <CardDisplay

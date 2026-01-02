@@ -1,7 +1,10 @@
 "use client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
+import { useAuthStore } from "@/lib/store/useAuthStore";
 import {
   bufferToBase64,
   encryptWithAes,
@@ -9,71 +12,50 @@ import {
   generateRsaKeyPair,
   importAesKeyFromBase64,
 } from "@/lib/encryption/rsa";
-import {
-  decryptAESKey,
-  encryptAESKey,
-  generateAESKey,
-} from "@/lib/encryption_aes";
-import { useAuthStore } from "@/lib/store/useAuthStore";
-import { createClient } from "@/lib/supabase/client";
-import { Eye, EyeClosed } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import React, { useState } from "react";
+import { encryptAESKey, generateAESKey } from "@/lib/encryption_aes";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function SignupPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [showPassword, setShowPassword] = useState<boolean>(false);
-  const setDecryptedAesKey = useAuthStore((state) => state.setDecryptedAesKey);
-  const setUser = useAuthStore((state) => state.setUser);
-  const setProfile = useAuthStore((state) => state.setProfile);
-  const [isLoading, setIsLoading] = useState(false);
-
   const router = useRouter();
-
   const supabase = createClient();
 
-  const handleGenerateKeys = () => {
-    const aesKey = generateAESKey();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-    const encryptedAesKey = encryptAESKey(aesKey, password);
+  const { setDecryptedAesKey, setUser, setProfile } = useAuthStore();
 
-    const decryptedAeskey = decryptAESKey(
-      encryptedAesKey.encryptedKey,
-      encryptedAesKey.iv,
-      encryptedAesKey.salt,
-      password
-    );
-  };
-
-  async function signUpWithEmail(e: any) {
+  /**
+   * Orchestration de la création du compte et du coffre-fort chiffré
+   */
+  const signUpWithEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
 
-    if (error) {
-      toast.error(error.message);
-      setIsLoading(false);
-      return;
-    }
+    try {
+      // 1. Création du compte Auth Supabase
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
 
-    if (data.user) {
+      if (authError || !authData.user)
+        throw new Error(authError?.message || "Auth failed");
+
+      // 2. Génération de la couche de sécurité (AES + RSA)
       const aesKeyBase64 = generateAESKey();
+      if (!aesKeyBase64) throw new Error("Encryption engine failure");
 
+      // Chiffrement de la clé AES par le password maître
       const encryptedAesKey = encryptAESKey(aesKeyBase64, password);
 
-      if (!aesKeyBase64) {
-        toast.error("Error creating account");
-        setIsLoading(false);
-        return;
-      }
-
+      // Génération de la paire RSA
       const aesKey = await importAesKeyFromBase64(aesKeyBase64);
       const keyPair = await generateRsaKeyPair();
 
@@ -86,119 +68,118 @@ export default function SignupPage() {
         keyPair.privateKey
       );
 
+      // Chiffrement de la clé privée RSA par la clé AES
       const { cipher, iv } = await encryptWithAes(privateKeyBuffer, aesKey);
 
-      const privateKeyBase64 = bufferToBase64(privateKeyBuffer);
       const encryptedPrivateKeyBase64 = bufferToBase64(cipher);
       const ivBase64 = bufferToBase64(iv);
 
-      const { data: profileCreate, error: profileError } = await supabase
+      // 3. Création du profil en base de données
+      const { error: profileError } = await supabase.from("profiles").insert([
+        {
+          id: authData.user.id, // On s'assure de lier l'ID
+          personal_aes_encrypted_key: encryptedAesKey.encryptedKey,
+          personal_iv: encryptedAesKey.iv,
+          personal_salt: encryptedAesKey.salt,
+          rsa_public_key: publicKeyBase64,
+          iv_rsa_private_key: ivBase64,
+          encrypted_rsa_private_key: encryptedPrivateKeyBase64,
+          display_name: email.split("@")[0], // Fallback simple pour le nom
+        },
+      ]);
+
+      if (profileError) throw new Error("Profile creation failed");
+
+      // 4. Récupération du profil complet pour synchroniser le store
+      const { data: profileData } = await supabase
         .from("profiles")
-        .insert([
-          {
-            personal_aes_encrypted_key: encryptedAesKey.encryptedKey,
-            personal_iv: encryptedAesKey.iv,
-            personal_salt: encryptedAesKey.salt,
-            rsa_public_key: publicKeyBase64,
-            iv_rsa_private_key: ivBase64,
-            encrypted_rsa_private_key: encryptedPrivateKeyBase64,
-            display_name: displayName,
-          },
-        ]);
-      if (!profileError) {
-        const { data: profileData, error: fetchError } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", data.user.id)
-          .single();
+        .select("*")
+        .eq("id", authData.user.id)
+        .single();
 
-        if (profileData) {
-          setUser(data.user);
-          setProfile(profileData);
-          setDecryptedAesKey(aesKeyBase64);
+      if (profileData) {
+        setUser(authData.user);
+        setProfile(profileData);
+        setDecryptedAesKey(aesKeyBase64);
 
-          router.push("/start");
-        }
-      } else {
-        toast.error("Error creating account");
-        setIsLoading(false);
+        toast.success("Vault created successfully!");
+        router.push("/start");
       }
+    } catch (err: any) {
+      console.error("Signup error:", err);
+      toast.error(err.message || "An error occurred during signup");
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
-    <section className="bg-neutral-100 overflow-hidden px-5 relative w-full flex items-center justify-center">
-      <div className="container h-screen py-12 md:py-32 relative z-10 flex justify-center items-center">
-        <div className="p-6 max-w-[450px] rounded-md border-neutral-800/10 w-full z-10 text-neutral-800 bg-white">
-          <span className="w-fit text-left text-3xl md:text-4xl font-semibold tracking-tighter ">
+    <section className="bg-neutral-100 min-h-screen px-5 flex items-center justify-center">
+      <div className="w-full max-w-[450px] z-10">
+        <div className="p-8 rounded-xl border border-neutral-200 shadow-sm bg-white">
+          <h2 className="text-3xl font-semibold tracking-tighter text-neutral-900 mb-6">
             Create an account
-          </span>
+          </h2>
 
-          <form className="flex flex-col mt-6">
-            <div className="flex flex-col gap-2 mb-4">
+          <form onSubmit={signUpWithEmail} className="space-y-4">
+            <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
-                type="email"
                 id="email"
-                name="email"
+                type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter an email address"
-                className="h-11 "
+                placeholder="name@company.com"
+                className="h-11"
                 required
               />
             </div>
-            <div className="flex flex-col gap-2 mb-6">
-              <Label htmlFor="password">Password</Label>
 
+            <div className="space-y-2">
+              <Label htmlFor="password">Master Password</Label>
               <div className="relative">
                 <Input
-                  type={showPassword ? "text" : "password"}
                   id="password"
-                  name="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
-                  placeholder="Enter a password"
                   onChange={(e) => setPassword(e.target.value)}
-                  className="h-11"
+                  placeholder="Minimum 8 characters"
+                  className="h-11 pr-10"
                   required
                 />
                 <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setShowPassword(!showPassword);
-                  }}
-                  className="absolute p-2 hover:bg-neutral-50/10 rounded-sm  right-3 top-1/2 -translate-y-1/2"
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-700"
                 >
-                  {showPassword ? (
-                    <EyeClosed className="size-5" />
-                  ) : (
-                    <Eye className="size-5" />
-                  )}
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
+
             <Button
-              disabled={isLoading || !email.trim() || !password.trim()}
-              onClick={(e) => signUpWithEmail(e)}
               type="submit"
-              size="lg"
               className="w-full h-11"
+              disabled={isLoading || !email || password.length < 8}
             >
-              Signup
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating secure vault...
+                </>
+              ) : (
+                "Create Account"
+              )}
             </Button>
-            <div className="mt-6 text-neutral-700">
-              <span className="text-sm">
-                Already have an account ?
-                <Button variant="link">
-                  <Link
-                    className="underline underline-offset-2 duration-150 hover:underline"
-                    href="/login"
-                  >
-                    Login to your account
-                  </Link>
-                </Button>
-              </span>
-            </div>
+
+            <p className="text-center text-sm text-neutral-600 mt-4">
+              Already have an account?{" "}
+              <Link
+                href="/login"
+                className="text-primary font-medium hover:underline"
+              >
+                Log in
+              </Link>
+            </p>
           </form>
         </div>
       </div>

@@ -137,6 +137,7 @@ export default function Page() {
   const auth = useAuthStore((s) => s.user);
   const router = useRouter();
   const supabase = createClient();
+  const decryptedAesKey = useAuthStore((state) => state.decryptedAesKey);
 
   const passwordStrength = getPasswordStrength(newPassword);
   const passwordsMatch = newPassword === confirmPassword;
@@ -154,7 +155,7 @@ export default function Page() {
     setIsLoading(true);
 
     try {
-      const aesKey = localStorage.getItem("aes-key");
+      const aesKey = decryptedAesKey;
 
       if (!passwordsMatch) {
         setError("New passwords don't match.");

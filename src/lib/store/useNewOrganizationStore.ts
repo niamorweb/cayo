@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 
 type OrganizationInvitation = {
   organization_member_id: string;
@@ -13,15 +12,8 @@ type OrganizationStore = {
   reset: () => void;
 };
 
-export const useNewOrganizationStore = create<OrganizationStore>()(
-  persist(
-    (set) => ({
-      newOrganizations: [],
-      setNewOrganizations: (orgs) => set({ newOrganizations: orgs }),
-      reset: () => set({ newOrganizations: [] }),
-    }),
-    {
-      name: "new-organization-store",
-    }
-  )
-);
+export const useNewOrganizationStore = create<OrganizationStore>((set) => ({
+  newOrganizations: [],
+  setNewOrganizations: (orgs) => set({ newOrganizations: orgs }),
+  reset: () => set({ newOrganizations: [] }),
+}));

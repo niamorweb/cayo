@@ -11,8 +11,9 @@ import { useParams, usePathname } from "next/navigation";
 import { useOrganizationStore } from "@/lib/store/organizationStore";
 import GlobalLayoutPage from "@/components/global/global-layout-page";
 import ItemLeftDisplay from "@/components/global/item-left-display";
+import { ReactNode } from "react";
 
-export default function Layout({ children }: any) {
+export default function Layout({ children }: { children: ReactNode }) {
   const params = useParams();
   const pathname = usePathname();
   const organizations = useOrganizationStore((s) => s.organizations);
