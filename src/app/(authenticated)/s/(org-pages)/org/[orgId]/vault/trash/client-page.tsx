@@ -24,6 +24,7 @@ export default function ClientPage({ organizationId }: PasswordsListProps) {
 
   return (
     <PasswordsListSide
+      // @ts-ignore
       passwords={passwords}
       currentOrganization={(currentOrganization as Organization) ?? null}
       isTrash={true}
