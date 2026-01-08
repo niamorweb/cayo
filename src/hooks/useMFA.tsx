@@ -14,8 +14,6 @@ export const useMFA = () => {
   const enrollMFA = async () => {
     // Vérifier s'il y a déjà un factor
     const factors = await getFactors();
-    console.log("factorsfactors ;; ", factors);
-    console.log("factorsfactors  ;; ", factors.length);
 
     if (factors.length > 0) {
       return { data: null, error: new Error("MFA déjà configuré") };

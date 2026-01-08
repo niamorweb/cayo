@@ -1,19 +1,37 @@
 "use client";
-import {
-  Users,
-  Grid2X2Plus,
-  Grid2X2,
-  UserPlus,
-  Building,
-  Upload,
-} from "lucide-react";
-import { useParams, usePathname } from "next/navigation";
-import { useOrganizationStore } from "@/lib/store/organizationStore";
-import GlobalLayoutPage from "@/components/global/global-layout-page";
-import ItemLeftDisplay from "@/components/global/item-left-display";
-import { ReactNode } from "react";
 
-export default function Layout({ children }: { children: ReactNode }) {
+import React from "react";
+import Link from "next/link";
+import { useParams, usePathname } from "next/navigation";
+import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
+import {
+  Building,
+  Users,
+  Grid2X2,
+  Upload,
+  Settings,
+  ShieldCheck,
+} from "lucide-react";
+import { useOrganizationStore } from "@/lib/store/organizationStore";
+
+// --- TYPES & CONFIG ---
+type Role = "admin" | "manager" | "member" | "owner"; // Ajuste selon tes types réels
+
+interface NavItem {
+  name: string;
+  href: string; // Le path final
+  icon: any;
+  roleAccess: string[];
+  // Permet de garder l'onglet actif sur des sous-pages (ex: add-member)
+  relatedPaths?: string[];
+}
+
+export default function OrganizationSettingsLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const params = useParams();
   const pathname = usePathname();
   const organizations = useOrganizationStore((s) => s.organizations);
@@ -24,143 +42,121 @@ export default function Layout({ children }: { children: ReactNode }) {
   if (!currentOrganization) return null;
 
   const baseSettingsPath = `/s/org/${currentOrganization.id}/settings`;
-  const isSettingsPage = pathname.startsWith(baseSettingsPath);
-  const isSettingsRoot = pathname === baseSettingsPath;
 
-  const navItems = [
+  // --- CONFIGURATION DES ONGLETS (Regroupés) ---
+  const NAV_ITEMS: NavItem[] = [
     {
-      name: "Add a member",
-      icon: UserPlus,
-      description: "Add a new member in the organization",
-      href: `${baseSettingsPath}/add-member`,
-      roleAccess: ["admin", "manager"],
+      name: "General",
+      icon: Building, // Ou Settings
+      href: `${baseSettingsPath}/general`,
+      roleAccess: ["admin"],
+      relatedPaths: [],
     },
     {
-      name: "Manage members",
+      name: "Members",
       icon: Users,
-      description: "Manage all organization members",
       href: `${baseSettingsPath}/members`,
       roleAccess: ["admin", "manager"],
+      relatedPaths: [`${baseSettingsPath}/add-member`],
     },
     {
-      name: "Add a group",
-      icon: Grid2X2Plus,
-      description: "Add a new group in the organization",
-      href: `${baseSettingsPath}/add-group`,
-      roleAccess: ["admin", "manager"],
-    },
-    {
-      name: "Manage groups",
+      name: "Groups",
       icon: Grid2X2,
-      description: "Create and manage organizations groups",
       href: `${baseSettingsPath}/groups`,
       roleAccess: ["admin", "manager"],
+      relatedPaths: [`${baseSettingsPath}/add-group`],
     },
     {
       name: "Import",
       icon: Upload,
-      description: "Import password in the organization.",
       href: `${baseSettingsPath}/import`,
       roleAccess: ["admin", "manager"],
-    },
-    {
-      name: "Global",
-      icon: Building,
-      description: "Manage your organization settings",
-      href: `${baseSettingsPath}/global`,
-      roleAccess: ["admin"],
+      relatedPaths: [],
     },
   ];
 
+  // Filtrage par rôle
+  const visibleItems = NAV_ITEMS.filter((item) =>
+    item.roleAccess.includes(currentOrganization.user_role)
+  );
+
   return (
-    <GlobalLayoutPage
-      name="Organization settings"
-      conditionToHide={!isSettingsRoot}
-      leftChildren={
-        <nav className="flex-1 px-3">
-          {navItems
-            .filter((item) =>
-              item.roleAccess.includes(currentOrganization.user_role)
-            )
-            .map((item, index) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.href;
-
-              return (
-                <ItemLeftDisplay
-                  index={index}
-                  key={index}
-                  name={item.name}
-                  description={item.description}
-                  illustration={<Icon className="stroke-[1px]" />}
-                  isItemActive={isActive}
-                  icon={null}
-                  href={item.href}
-                />
-              );
-            })}
-        </nav>
-      }
-      mainChildren={
-        !isSettingsRoot && (
-          <div className="flex-1 bg-neutral-100 overflow-auto">
-            <div className="">{children}</div>
+    <div className="flex flex-col h-full bg-[#F9F9FB] w-full text-neutral-900">
+      {/* --- HEADER STICKY --- */}
+      <header className="bg-white border-b border-neutral-200 sticky top-0 z-20 shrink-0">
+        {/* Titre de la section */}
+        <div className="h-16 px-6 md:px-8 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-indigo-50 p-2 rounded-lg border border-indigo-100">
+              <Building className="w-5 h-5 text-indigo-600" />
+            </div>
+            <div>
+              <h1 className="!text-sm !tracking-tighter font-bold text-neutral-900 leading-none">
+                {currentOrganization.name}
+              </h1>
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className="!text-xs  text-neutral-500">
+                  Organization Settings
+                </span>
+                {/* Petit badge de rôle pour info */}
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-neutral-100 text-neutral-600 uppercase tracking-wide">
+                  {currentOrganization.user_role}
+                </span>
+              </div>
+            </div>
           </div>
-        )
-      }
-    />
-    // <div className="flex h-screen">
-    //   {/* Sidebar */}
-    //   {isSettingsPage && (
-    //     <div
-    //       className={cn(
-    //         "w-full py-3 md:w-2/5 md:max-w-[400px] md:h-screen overflow-auto md:outline outline-neutral-200 md:flex flex-col gap-3",
-    //         !isSettingsRoot && "hidden"
-    //       )}
-    //     >
-    //       {/* Header */}
-    //       <div className="px-3 py-4 border-b border-b-neutral-200 flex items-center gap-2 justify-between">
-    //         <div className="flex items-center gap-2">
-    //           <SidebarTrigger />
-    //           <span className="text-xl font-medium">Organization settings</span>
-    //         </div>
-    //       </div>
+        </div>
 
-    //       {/* Navigation */}
-    //       <nav className="flex-1 px-3">
-    //         {navItems.map((item) => {
-    //           const Icon = item.icon;
-    //           const isActive = pathname === item.href;
+        {/* Navigation par Onglets */}
+        <div className="px-6 md:px-8 flex items-center gap-6 overflow-x-auto scrollbar-hide">
+          {visibleItems.map((item) => {
+            const Icon = item.icon;
 
-    //           return (
-    //             <Link
-    //               key={item.name}
-    //               href={item.href}
-    //               className={cn(
-    //                 "rounded-lg hover:bg-neutral-50 duration-150 w-full flex items-center h-24 p-7 gap-3",
-    //                 isActive && "bg-accent"
-    //               )}
-    //             >
-    //               <Icon className="size-6 shrink-0" />
-    //               <div className="flex-1 min-w-0">
-    //                 <p className="font-medium text-sm">{item.name}</p>
-    //                 <p className="text-xs text-muted-foreground mt-1">
-    //                   {item.description}
-    //                 </p>
-    //               </div>
-    //             </Link>
-    //           );
-    //         })}
-    //       </nav>
-    //     </div>
-    //   )}
+            // Logique Active : Soit match exact, soit match avec relatedPaths
+            const isActive =
+              pathname === item.href || item.relatedPaths?.includes(pathname);
 
-    //   {/* Main content */}
-    //   {!isSettingsRoot && (
-    //     <div className="flex-1 bg-neutral-100 overflow-auto">
-    //       <div className="p-8">{children}</div>
-    //     </div>
-    //   )}
-    // </div>
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={cn(
+                  "relative flex items-center gap-2 px-1 py-4 text-sm font-medium transition-colors outline-none whitespace-nowrap",
+                  isActive
+                    ? "text-neutral-900"
+                    : "text-neutral-500 hover:text-neutral-800"
+                )}
+              >
+                <Icon
+                  size={16}
+                  className={cn(
+                    "transition-colors",
+                    isActive ? "text-indigo-600" : "text-neutral-400"
+                  )}
+                />
+                <span>{item.name}</span>
+
+                {isActive && (
+                  <motion.div
+                    layoutId="org-settings-active-tab"
+                    className="absolute bottom-0 left-0 right-0 h-[2px] bg-indigo-600 rounded-t-full"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3 }}
+                  />
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      </header>
+
+      {/* --- CONTENU --- */}
+      <main className="flex-1 overflow-y-auto p-6 md:p-8">
+        <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {children}
+        </div>
+      </main>
+    </div>
   );
 }

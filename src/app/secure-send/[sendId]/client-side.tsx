@@ -1,17 +1,29 @@
 "use client";
 
+import React, { useState, useEffect } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { toast } from "sonner";
+import {
+  Check,
+  Copy,
+  Eye,
+  EyeOff,
+  Globe,
+  Lock,
+  ShieldCheck,
+  FileText,
+  Key,
+} from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { decryptText } from "@/lib/encryption/text";
 import { getLogoUrl } from "@/lib/getLogoUrl";
-import { Copy, Eye, Globe } from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
-import React, { useState, useEffect } from "react";
-import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
-// On définit une interface pour le secureSend
+// --- Interfaces ---
 interface SecureSendProps {
   secureSend: {
     iv: string;
@@ -25,197 +37,250 @@ interface SecureSendProps {
   };
 }
 
-export default function ClientSide({ secureSend }: SecureSendProps) {
-  const [showPassword, setShowPassword] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
+// --- Composant Helper pour les champs en lecture seule ---
+const ReadOnlyField = ({
+  label,
+  value,
+  isPassword = false,
+  onCopy,
+}: {
+  label: string;
+  value?: string;
+  isPassword?: boolean;
+  onCopy?: () => void;
+}) => {
+  const [show, setShow] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  // Sécurité pour Next.js : s'assurer que window est disponible
+  if (!value) return null;
+
+  const handleCopy = () => {
+    if (onCopy) {
+      onCopy();
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+    <div className="space-y-1.5 py-2">
+      <Label className="text-xs font-semibold text-neutral-500 uppercase tracking-wider flex items-center gap-2">
+        {label}
+      </Label>
+      <div className="flex items-center justify-between p-3 bg-neutral-50 border border-neutral-200 rounded-lg group hover:border-indigo-200 transition-colors">
+        <div
+          className={cn(
+            "text-sm text-neutral-800 truncate font-medium flex-1 font-mono",
+            isPassword && !show && "tracking-widest"
+          )}
+        >
+          {isPassword && !show ? "••••••••••••••••" : value}
+        </div>
+        <div className="flex items-center gap-1">
+          {isPassword && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-neutral-400 hover:text-neutral-700"
+              onClick={() => setShow(!show)}
+            >
+              {show ? <EyeOff size={14} /> : <Eye size={14} />}
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "h-8 w-8 transition-colors",
+              copied
+                ? "text-green-600 bg-green-50"
+                : "text-neutral-400 hover:text-indigo-600"
+            )}
+            onClick={handleCopy}
+          >
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default function ClientSide({ secureSend }: SecureSendProps) {
+  const [isMounted, setIsMounted] = useState(false);
+  const [decryptedData, setDecryptedData] = useState<any>(null);
+
   useEffect(() => {
     setIsMounted(true);
-  }, []);
 
-  if (!isMounted) return null;
+    // Logique de déchiffrement au montage
+    try {
+      const key = window.location.hash.substring(1);
+      if (!key) return;
 
-  // Récupération de la clé depuis le hash (#abc...)
-  const key = window.location.hash.substring(1);
+      const ivBuffer = Buffer.from(secureSend.iv, "base64");
+      const ivUint8 = new Uint8Array(ivBuffer);
 
-  // --- Correction du IV ---
-  // Au lieu de Array.from, on garde le format Buffer ou Uint8Array
-  // que decryptText attend (généralement Uint8Array en environnement web)
-  const ivBuffer = Buffer.from(secureSend.iv, "base64");
-  const ivUint8 = new Uint8Array(ivBuffer);
+      const data = {
+        name: decryptText(secureSend.name, key, ivUint8 as any),
+        username: decryptText(secureSend.username, key, ivUint8 as any),
+        password: decryptText(secureSend.password, key, ivUint8 as any),
+        url: decryptText(secureSend.website_url, key, ivUint8 as any),
+        note: decryptText(secureSend.note, key, ivUint8 as any),
+        text: decryptText(secureSend.text, key, ivUint8 as any),
+      };
+      setDecryptedData(data);
+    } catch (e) {
+      console.error("Decryption failed", e);
+      toast.error(
+        "Impossible de déchiffrer les données. Le lien est peut-être invalide."
+      );
+    }
+  }, [secureSend]);
 
-  // Si decryptText attend une string hexadécimale ou base64, passez secureSend.iv directement.
-  // Mais si elle attend l'IV brut, Uint8Array est la norme.
-  const lisibleSecureSend = {
-    name: decryptText(secureSend.name, key, ivUint8 as any), // Le 'as any' aide si votre lib est typée strictement string
-    username: decryptText(secureSend.username, key, ivUint8 as any),
-    password: decryptText(secureSend.password, key, ivUint8 as any),
-    url: decryptText(secureSend.website_url, key, ivUint8 as any),
-    note: decryptText(secureSend.note, key, ivUint8 as any),
-    text: decryptText(secureSend.text, key, ivUint8 as any),
-  };
+  if (!isMounted || !decryptedData) return null;
 
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      toast.success("Copied !");
+      toast.success("Copié !");
     } catch (error) {
-      toast.error("Failed to copy");
+      toast.error("Erreur lors de la copie");
     }
   };
 
-  function formatDateTime(dateString: string) {
-    const date = new Date(dateString);
+  return (
+    <div className="min-h-screen bg-[#F9F9FB] flex flex-col items-center justify-center p-6 relative overflow-hidden">
+      {/* Background Decor */}
+      <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-white to-transparent" />
 
-    const hours = date.getHours().toString().padStart(2, "0");
-    const minutes = date.getMinutes().toString().padStart(2, "0");
-    const day = date.getDate().toString().padStart(2, "0");
-    const month = (date.getMonth() + 1).toString().padStart(2, "0");
-    const year = date.getFullYear().toString().slice(-2);
+      {/* Main Card */}
+      <div className="w-full max-w-[520px] relative z-10 animate-in fade-in zoom-in-95 duration-500">
+        {/* Brand Header */}
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-12 h-12 bg-neutral-900 rounded-xl flex items-center justify-center text-white mb-4 shadow-xl shadow-neutral-200">
+            <Lock size={20} />
+          </div>
+          <h1 className="text-2xl font-bold text-neutral-900">Secure Share</h1>
+          <p className="text-neutral-500 text-sm mt-2 flex items-center gap-1.5 bg-white px-3 py-1 rounded-full border border-neutral-200 shadow-sm">
+            <ShieldCheck size={12} className="text-green-600" />
+            Decrypted locally in your browser
+          </p>
+        </div>
 
-    return `${hours}:${minutes} - ${day}/${month}/${year}`;
-  }
+        <div className="bg-white border border-neutral-200 rounded-2xl shadow-xl shadow-neutral-200/50 overflow-hidden">
+          {/* Item Header */}
+          <div className="p-6 pb-4 flex items-start gap-4 border-b border-neutral-100 bg-neutral-50/30">
+            <div className="shrink-0 w-14 h-14 bg-white rounded-xl border border-neutral-200 flex items-center justify-center shadow-sm text-indigo-500">
+              {secureSend.type === "text" ? (
+                <FileText size={24} />
+              ) : decryptedData.url ? (
+                <Image
+                  src={getLogoUrl(decryptedData.url)}
+                  width={32}
+                  height={32}
+                  alt="Logo"
+                  className="object-contain"
+                />
+              ) : (
+                <Key size={24} />
+              )}
+            </div>
+            <div className="flex-1 min-w-0 pt-1">
+              <h2 className="text-lg font-bold text-neutral-900 truncate">
+                {decryptedData.name}
+              </h2>
+              <p className="text-xs text-neutral-500 uppercase tracking-wide font-semibold mt-1">
+                {secureSend.type === "text" ? "Encrypted Note" : "Credential"}
+              </p>
+            </div>
+          </div>
 
-  return secureSend && secureSend.type === "text" ? (
-    <div className="w-full flex flex-1 justify-center bg-neutral-100 min-h-screen p-8">
-      <div className="w-full max-w-[500px] flex flex-col gap-4">
-        <div className="bg-white border border-border  rounded-xl p-4 flex items-center gap-4">
-          <div className="bg-neutral-50 rounded-md border border-black/10 h-16 w-16 flex items-center justify-center">
-            <span className="font-black text-4xl">C</span>
-          </div>
-          <div className="flex flex-col gap-2">
-            <h3 className="text-xl ">{lisibleSecureSend.name}</h3>
-            <p className="uppercase text-black/60 text-sm">Secure send</p>
-          </div>
-        </div>
-        <div className="bg-white border border-border  rounded-xl p-4 flex flex-col gap-4">
-          <Label>Message</Label>
-          <div className="relative">
-            <div>{lisibleSecureSend.text}</div>
-          </div>
-        </div>
-        <div className="flex justify-center gap-1 mt-6 relative z-10 text-black/70 ">
-          <Link
-            className="text-blue-500 duration-150 text-sm hover:underline"
-            href="/login"
-          >
-            Manage your passwords on Cayo for Free
-          </Link>
-        </div>
-      </div>
-    </div>
-  ) : (
-    <div className="w-full flex flex-1 justify-center bg-neutral-100 min-h-screen p-8">
-      <div className="w-full max-w-[500px] flex flex-col gap-4">
-        <div className="bg-white border border-border  rounded-xl p-4 flex items-center gap-4">
-          <div className="bg-neutral-50 rounded-md border border-black/10 h-16 w-16 flex items-center justify-center">
-            {lisibleSecureSend.url ? (
-              <Image
-                src={getLogoUrl(lisibleSecureSend.url)}
-                width={100}
-                height={100}
-                alt=""
-                className="size-8"
-              />
+          {/* Content Body */}
+          <div className="p-6 space-y-4">
+            {secureSend.type === "text" ? (
+              // TEXT VIEW
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                  Message Content
+                </Label>
+                <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-4 text-sm text-neutral-800 font-mono whitespace-pre-wrap leading-relaxed select-text shadow-inner">
+                  {decryptedData.text}
+                </div>
+                <div className="flex justify-end mt-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => copyToClipboard(decryptedData.text)}
+                    className="gap-2"
+                  >
+                    <Copy size={14} /> Copy full text
+                  </Button>
+                </div>
+              </div>
             ) : (
-              <Globe className="size-8" />
-            )}{" "}
+              // CREDENTIAL VIEW
+              <div className="flex flex-col gap-1">
+                <ReadOnlyField
+                  label="Username"
+                  value={decryptedData.username}
+                  onCopy={() => copyToClipboard(decryptedData.username)}
+                />
+                <div className="my-1 border-t border-neutral-100/50" />
+                <ReadOnlyField
+                  label="Password"
+                  value={decryptedData.password}
+                  isPassword={true}
+                  onCopy={() => copyToClipboard(decryptedData.password)}
+                />
+                {decryptedData.url && (
+                  <>
+                    <div className="my-1 border-t border-neutral-100/50" />
+                    <ReadOnlyField
+                      label="Website"
+                      value={decryptedData.url}
+                      onCopy={() => copyToClipboard(decryptedData.url)}
+                    />
+                  </>
+                )}
+                {decryptedData.note && (
+                  <>
+                    <div className="my-1 border-t border-neutral-100/50" />
+                    <div className="py-2 space-y-1.5">
+                      <Label className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                        Note
+                      </Label>
+                      <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 text-sm text-amber-900">
+                        {decryptedData.note}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
-          <div className="flex flex-col gap-2">
-            <h3 className="text-xl ">{lisibleSecureSend.name}</h3>
-            <p className="uppercase text-black/60 text-sm">Secure send</p>
-          </div>
-        </div>
-        <div className="bg-white border border-border rounded-xl p-4 flex flex-col gap-2">
-          <div className="grid grid-cols-5 w-full">
-            <Label className=" col-span-2">Username</Label>
-            <div className="relative col-span-3">
-              <input
-                readOnly
-                className={`p-2 rounded-lg w-full !outline-none `}
-                value={lisibleSecureSend.username}
-                type="text"
-              />
-              <Button
-                onClick={() => copyToClipboard(lisibleSecureSend.username)}
-                className="absolute right-2 top-1/2 -translate-y-1/2"
-                variant="ghost"
-              >
-                <Copy />
-              </Button>
-            </div>
-          </div>
-          <Separator />
-          <div className="grid grid-cols-5 w-full">
-            <Label className=" col-span-2">Password</Label>
-            <div className="relative col-span-3">
-              <input
-                readOnly
-                className={`p-2 rounded-lg w-full !outline-none `}
-                value={lisibleSecureSend.password}
-                type={showPassword ? "text" : "password"}
-              />
-              <Button
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-12 top-1/2 -translate-y-1/2"
-                variant="ghost"
-              >
-                <Eye />
-              </Button>
-              <Button
-                onClick={() => copyToClipboard(lisibleSecureSend.password)}
-                className="absolute right-2 top-1/2 -translate-y-1/2"
-                variant="ghost"
-              >
-                <Copy />
-              </Button>
-            </div>
-          </div>
-          <Separator />
-          <div className="grid grid-cols-5 w-full">
-            <Label className=" col-span-2">Website URL</Label>
-            <div className="relative col-span-3">
-              <input
-                readOnly
-                className={`p-2 rounded-lg w-full !outline-none `}
-                type="text"
-                placeholder="https://example.com"
-                value={lisibleSecureSend.url}
-              />
-              <Button
-                onClick={() => copyToClipboard(lisibleSecureSend.url)}
-                className="absolute right-2 top-1/2 -translate-y-1/2"
-                variant="ghost"
-              >
-                <Copy />
-              </Button>
-            </div>
+
+          {/* Warning Footer */}
+          <div className="bg-neutral-50 px-6 py-3 border-t border-neutral-200 flex items-center gap-3">
+            <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
+            <p className="text-[11px] text-neutral-500 font-medium">
+              Please copy this data immediately. This link may expire.
+            </p>
           </div>
         </div>
-        <div className="bg-white border border-border  rounded-xl p-4 flex flex-col gap-4">
-          <Label>Notes</Label>
-          <div className="relative">
-            <textarea
-              readOnly
-              className={`rounded-lg w-full !outline-none `}
-              value={lisibleSecureSend.note}
-            />
+
+        {/* Footer CTA */}
+        <div className="mt-8 text-center">
+          <p className="text-sm text-neutral-500 mb-3">
+            Powered by Cayo Security
+          </p>
+          <Link href="/signup">
             <Button
-              onClick={() => copyToClipboard(lisibleSecureSend.note)}
-              className="absolute right-2"
-              variant="ghost"
+              variant="outline"
+              className="rounded-full px-6 bg-white border-neutral-200 hover:bg-neutral-50 hover:text-indigo-600 transition-all"
             >
-              <Copy />
+              Create your own secure link
             </Button>
-          </div>
-        </div>
-        <div className="flex justify-center gap-1 mt-6 relative z-10 text-black/70 ">
-          <Link
-            className="text-blue-500 duration-150 text-sm hover:underline"
-            href="/login"
-          >
-            Manage your passwords on Cayo for Free
           </Link>
         </div>
       </div>

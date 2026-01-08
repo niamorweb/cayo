@@ -2,11 +2,27 @@
 
 import React, { useState, useMemo } from "react";
 import Image from "next/image";
-import { ChevronRight, Globe, Plus, Search, Trash } from "lucide-react";
+import {
+  Search,
+  Plus,
+  MoreHorizontal,
+  Copy,
+  Star,
+  Globe,
+  Filter,
+  Trash,
+  FilterX,
+} from "lucide-react";
 import { toast } from "sonner";
 
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,11 +41,8 @@ import { fetchAndStorePasswordsAndFolders } from "@/lib/fetchPasswordsAndFolders
 
 import PasswordSelected from "./password-selected";
 import CreatePasswordInterface from "./password-create-interface";
-import GlobalLayoutPage from "../global/global-layout-page";
-import ItemLeftDisplay from "../global/item-left-display";
 
 // --- Interfaces ---
-
 export interface PasswordItem {
   id: string;
   name: string;
@@ -39,6 +52,7 @@ export interface PasswordItem {
   group_id?: string | null;
   source?: "organization" | "group";
   modified_at?: string;
+  favorite?: boolean; // Ajouté pour l'icone Star
 }
 
 export interface Organization {
@@ -60,12 +74,13 @@ export default function PasswordsListSide({
   currentOrganization,
   isTrash,
 }: PasswordsListSideProps) {
+  // --- STATE ---
   const [search, setSearch] = useState("");
-  const [selectedPassword, setSelectedPassword] = useState<any>(null); // Type 'any' maintenu ici car PasswordSelected attend une structure complexe déchiffrée
+  const [selectedPassword, setSelectedPassword] = useState<any>(null);
   const [displayMode, setDisplayMode] = useState<DisplayMode>("none");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Filtrage optimisé avec useMemo
+  // --- LOGIC ---
   const filteredPasswords = useMemo(() => {
     if (!passwords) return [];
     const s = search.toLowerCase();
@@ -94,6 +109,24 @@ export default function PasswordsListSide({
     }
   };
 
+  // Fonction pour supprimer un seul item (depuis le tableau)
+  const handleDeleteSingle = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation(); // Empêcher l'ouverture du détail
+    if (!confirm("Move to trash?")) return;
+
+    try {
+      await fetch("/api/passwords", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ passwordId: id }),
+      });
+      toast.success("Item moved to trash");
+      await refreshData();
+    } catch (err) {
+      toast.error("Failed to delete item");
+    }
+  };
+
   const refreshData = async () => {
     await Promise.all([
       fetchAndStorePasswordsAndFolders(true),
@@ -101,43 +134,96 @@ export default function PasswordsListSide({
     ]);
   };
 
+  const copyToClipboard = (e: React.MouseEvent, text: string) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(text);
+    toast.success("Copied to clipboard");
+  };
+
   const isAdmin =
     !currentOrganization || currentOrganization.user_role === "admin";
 
+  // --- RENDERING MODALS/OVERLAYS (FULL WIDTH) ---
+  if (displayMode === "create-password") {
+    return (
+      <div className="w-full h-full bg-[#F9F9FB] p-6 overflow-y-auto">
+        <CreatePasswordInterface
+          currentOrganization={currentOrganization}
+          setDisplayMode={setDisplayMode}
+        />
+      </div>
+    );
+  }
+
+  if (displayMode === "edit-password" && selectedPassword) {
+    return (
+      <div className="w-full h-full bg-[#F9F9FB] p-6 overflow-y-auto">
+        <PasswordSelected
+          currentOrganization={currentOrganization}
+          selectedPassword={selectedPassword}
+          setSelectedPassword={setSelectedPassword}
+          setActiveModal={() => setDisplayMode("none")}
+          isAlreadyInTrash={isTrash}
+        />
+      </div>
+    );
+  }
+
+  // --- MAIN VIEW (TABLE) ---
   return (
-    <GlobalLayoutPage
-      name={isTrash ? "Trash" : "All passwords"}
-      conditionToHide={displayMode !== "none"}
-      actionButton={
-        <>
+    <div className="flex flex-col h-full bg-[#F9F9FB] w-full text-neutral-900">
+      {/* --- TOP BAR --- */}
+      <header className="h-16 border-b border-neutral-200 bg-white px-6 flex items-center justify-between sticky top-0 z-10 shrink-0">
+        <div className="flex items-center gap-4 w-full max-w-md">
+          <div className="relative w-full group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 w-4 h-4 group-focus-within:text-indigo-500 transition-colors" />
+            <Input
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={isTrash ? "Search trash..." : "Search vault..."}
+              className="pl-9 bg-neutral-100 border-transparent hover:bg-neutral-50 focus:bg-white focus:border-neutral-300 transition-all rounded-lg"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {!isTrash && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-neutral-600 border-neutral-200 hidden md:flex"
+            >
+              <Filter className="w-4 h-4 mr-2" /> Filter
+            </Button>
+          )}
+
           {isTrash ? (
             isAdmin && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
                     variant="destructive"
+                    size="sm"
                     disabled={isLoading || filteredPasswords.length === 0}
                   >
-                    <Trash className="mr-2 h-4 w-4" /> Empty the trash
+                    <Trash className="w-4 h-4 mr-2" /> Empty Trash
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>
-                      Are you absolutely sure?
-                    </AlertDialogTitle>
+                    <AlertDialogTitle>Empty Trash?</AlertDialogTitle>
                     <AlertDialogDescription>
                       This will permanently delete all{" "}
-                      {filteredPasswords.length} items.
+                      {filteredPasswords.length} items. This action cannot be
+                      undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction
                       onClick={handleDeleteAll}
-                      className="bg-red-600"
+                      className="bg-red-600 hover:bg-red-700"
                     >
-                      Delete Everything
+                      Delete Forever
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -145,92 +231,181 @@ export default function PasswordsListSide({
             )
           ) : (
             <Button
+              size="sm"
+              className="bg-neutral-900 hover:bg-neutral-800 text-white shadow-lg shadow-neutral-500/20"
               onClick={() => setDisplayMode("create-password")}
-              className="gap-2"
             >
-              <Plus className="size-4" /> New credential
+              <Plus className="w-4 h-4 mr-2" /> New Item
             </Button>
           )}
-        </>
-      }
-      leftChildren={
-        <>
-          <div className="px-3 flex flex-col w-full gap-2 mb-3">
-            <div className="relative mt-4">
-              <Input
-                onChange={(e) => setSearch(e.target.value)}
-                className="rounded-xl pl-10 h-12"
-                placeholder="Search by name, user..."
-              />
-              <Search className="absolute size-4 text-neutral-400 top-1/2 left-4 -translate-y-1/2" />
-            </div>
+        </div>
+      </header>
+
+      {/* --- CONTENT AREA --- */}
+      <main className="flex-1 p-6 overflow-y-auto">
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="!text-2xl font-bold !tracking-tight text-neutral-900">
+            {isTrash ? "Trash Bin" : "All Passwords"}
+          </h1>
+          <span className="text-sm text-neutral-500">
+            {filteredPasswords.length} entries
+          </span>
+        </div>
+
+        {/* LIST VIEW (Tableau Clean) */}
+        <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden min-h-[200px]">
+          {/* Table Header */}
+          <div className="grid grid-cols-12 gap-4 px-6 py-3 border-b border-neutral-100 bg-neutral-50/50 text-xs font-medium text-neutral-500 uppercase tracking-wider">
+            <div className="col-span-8 md:col-span-4">Name</div>
+            <div className="col-span-3 hidden md:block">Username</div>
+            <div className="col-span-3 hidden md:block">Website</div>
+            <div className="col-span-4 md:col-span-2 text-right">Actions</div>
           </div>
 
-          <div className="h-auto overflow-auto px-3">
-            <div className="flex flex-col mb-6 gap-1">
-              {filteredPasswords
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .map((pw) => (
-                  <ItemLeftDisplay
-                    key={pw.id}
-                    name={pw.name}
-                    description={pw.username}
-                    badge={pw.group_name}
-                    illustration={
-                      pw.url ? (
+          {/* Empty State */}
+          {filteredPasswords.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 text-neutral-400">
+              <div className="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center mb-4">
+                {isTrash ? (
+                  <Trash className="w-6 h-6 opacity-50" />
+                ) : (
+                  <FilterX className="w-6 h-6 opacity-50" />
+                )}
+              </div>
+              <p>No items found.</p>
+            </div>
+          )}
+
+          {/* Rows */}
+          <div className="divide-y divide-neutral-100">
+            {filteredPasswords
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => {
+                    setSelectedPassword(item);
+                    setDisplayMode("edit-password");
+                  }}
+                  className="grid grid-cols-12 gap-4 px-6 py-4 items-center group hover:bg-neutral-50 transition-colors cursor-pointer"
+                >
+                  {/* Name & Icon */}
+                  <div className="col-span-8 md:col-span-4 flex items-center gap-3 overflow-hidden">
+                    <div className="shrink-0 w-9 h-9 rounded-lg bg-neutral-100 border border-neutral-200 flex items-center justify-center font-bold text-xs overflow-hidden">
+                      {item.url ? (
                         <Image
-                          src={getLogoUrl(pw.url)}
+                          src={getLogoUrl(item.url)}
                           width={24}
                           height={24}
-                          alt="logo"
-                          className="rounded-sm"
+                          alt="Logo"
+                          className="object-cover"
                         />
                       ) : (
-                        <Globe className="stroke-[1px] text-neutral-400" />
-                      )
-                    }
-                    icon={
-                      <ChevronRight className="absolute right-2 size-5 text-neutral-300" />
-                    }
-                    isItemActive={selectedPassword?.id === pw.id}
-                    onClick={() => {
-                      setSelectedPassword(pw);
-                      setDisplayMode("edit-password");
-                    }}
-                  />
-                ))}
+                        <Globe className="text-neutral-400 w-4 h-4" />
+                      )}
+                    </div>
+                    <div className="flex flex-col truncate">
+                      <span className="font-medium text-neutral-900 truncate">
+                        {item.name}
+                      </span>
+                      {/* Mobile: show username here */}
+                      <span className="text-xs text-neutral-500 md:hidden truncate">
+                        {item.username}
+                      </span>
+                    </div>
+                  </div>
 
-              {!isTrash && filteredPasswords.length > 0 && (
-                <button
-                  onClick={() => setDisplayMode("create-password")}
-                  className="rounded-xl w-full text-primary flex justify-center items-center gap-3 py-8 border-2 border-dashed border-neutral-100 hover:border-primary/20 hover:bg-primary/5 transition-all mt-4"
-                >
-                  <Plus className="size-5" /> Add another one
-                </button>
-              )}
-            </div>
+                  {/* Username (Desktop) */}
+                  <div className="col-span-3 hidden md:flex items-center text-sm text-neutral-600 overflow-hidden">
+                    <span className="truncate max-w-[150px]">
+                      {item.username}
+                    </span>
+                    <button
+                      onClick={(e) => copyToClipboard(e, item.username)}
+                      className="ml-2 opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-indigo-600 transition-all p-1 hover:bg-indigo-50 rounded"
+                      title="Copy Username"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </button>
+                  </div>
+
+                  {/* Website (Desktop) */}
+                  <div className="col-span-3 hidden md:flex items-center gap-2 overflow-hidden">
+                    {item.url && (
+                      <div className="px-2 py-1 rounded-full bg-neutral-100 border border-neutral-200 text-xs text-neutral-600 flex items-center gap-1 max-w-full truncate">
+                        <Globe className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{item.url}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="col-span-4 md:col-span-2 flex items-center justify-end gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-neutral-400 hover:text-yellow-500 hidden md:flex"
+                      onClick={(e) => {
+                        e.stopPropagation(); /* Logic favorite */
+                      }}
+                    >
+                      <Star
+                        className={
+                          item.favorite
+                            ? "w-4 h-4 fill-yellow-500 text-yellow-500"
+                            : "w-4 h-4"
+                        }
+                      />
+                    </Button>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-neutral-400 hover:text-neutral-900"
+                        >
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setSelectedPassword(item);
+                            setDisplayMode("edit-password");
+                          }}
+                        >
+                          Edit Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(e) => copyToClipboard(e, item.username)}
+                        >
+                          Copy Username
+                        </DropdownMenuItem>
+                        {item.url && (
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(`https://${item.url}`, "_blank");
+                            }}
+                          >
+                            Launch Website
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem
+                          className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                          onClick={(e) => handleDeleteSingle(e, item.id)}
+                        >
+                          {isTrash ? "Delete Forever" : "Move to Trash"}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              ))}
           </div>
-        </>
-      }
-      mainChildren={
-        <>
-          {displayMode === "create-password" && (
-            <CreatePasswordInterface
-              currentOrganization={currentOrganization}
-              setDisplayMode={setDisplayMode}
-            />
-          )}
-          {displayMode === "edit-password" && selectedPassword && (
-            <PasswordSelected
-              currentOrganization={currentOrganization}
-              selectedPassword={selectedPassword}
-              setSelectedPassword={setSelectedPassword}
-              setActiveModal={() => setDisplayMode("none")}
-              isAlreadyInTrash={isTrash}
-            />
-          )}
-        </>
-      }
-    />
+        </div>
+      </main>
+    </div>
   );
 }

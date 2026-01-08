@@ -1,32 +1,43 @@
 "use client";
-import CardDisplay from "@/components/global/card-display";
+
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import {
+  Building2,
+  Loader2,
+  Users,
+  ArrowLeft,
+  CheckCircle2,
+  ShieldCheck,
+  Plus,
+} from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import React, { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+
 import { createClient } from "@/lib/supabase/client";
-import { toast } from "sonner";
 import { generateAESKey } from "@/lib/encryption_aes";
 import { encryptWithRsaPublicKey } from "@/lib/encryption/rsa";
 import { fetchAndStorePasswordsAndFolders } from "@/lib/fetchPasswordsAndFolders";
 import { fetchAndDecryptOrganizations } from "@/lib/fetchAndDecryptOrganizations.ts";
-import { useRouter } from "next/navigation";
 
-export default function Page() {
+export default function CreateOrganizationPage() {
   const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     const trimmedName = name.trim();
 
     if (trimmedName.length < 2) {
       toast.error(
         trimmedName.length === 0
           ? "Organization name is required"
-          : "Organization name must be at least 2 characters long"
+          : "Name must be at least 2 characters long"
       );
       return;
     }
@@ -36,16 +47,17 @@ export default function Page() {
     try {
       const supabase = createClient();
 
+      // 1. Get User Profile for Public Key
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("rsa_public_key")
         .single();
 
       if (profileError || !profile?.rsa_public_key) {
-        toast.error("Failed to fetch user profile");
-        return;
+        throw new Error("Failed to fetch user profile");
       }
 
+      // 2. Create Org Row
       const { data: organizationCreated, error: orgError } = await supabase
         .from("organizations")
         .insert({ name: trimmedName })
@@ -53,16 +65,17 @@ export default function Page() {
         .single();
 
       if (orgError || !organizationCreated?.id) {
-        toast.error("Failed to create organization");
-        return;
+        throw new Error("Failed to create organization");
       }
 
+      // 3. Generate & Encrypt Org Key
       const aesKeyGenerated = await generateAESKey();
       const encryptedAesKey = await encryptWithRsaPublicKey(
         aesKeyGenerated,
         profile.rsa_public_key
       );
 
+      // 4. Add Member (Self as Admin)
       const { error: memberError } = await supabase
         .from("organizations_members")
         .insert({
@@ -73,57 +86,146 @@ export default function Page() {
         });
 
       if (memberError) {
-        toast.error(
-          memberError.code === "23505"
-            ? "You are already a member of this organization"
-            : "Failed to create organization membership"
-        );
-        return;
+        throw new Error("Failed to create membership");
       }
 
       toast.success("Organization created successfully!");
 
-      await fetchAndStorePasswordsAndFolders(true);
-      await fetchAndDecryptOrganizations(true);
+      // 5. Refresh Data & Redirect
+      await Promise.all([
+        fetchAndStorePasswordsAndFolders(true),
+        fetchAndDecryptOrganizations(true),
+      ]);
 
       router.push(`/s/org/${organizationCreated.id}/vault`);
-    } catch (error) {
-      console.error("Organization creation error:", error);
-      toast.error("An unexpected error occurred");
-    } finally {
+    } catch (error: any) {
+      console.error("Creation error:", error);
+      toast.error(error.message || "An unexpected error occurred");
       setIsLoading(false);
     }
   };
 
   return (
-    <CardDisplay
-      actionBtns={
-        <Button
-          size="lg"
-          onClick={handleSubmit}
-          disabled={name.trim().length < 2 || isLoading}
-          type="submit"
-        >
-          {isLoading ? "Creating..." : "Create organization"}
-        </Button>
-      }
-      title="Create an organization"
-      description="Organizations allow you to securely share passwords and manage access with team members"
-    >
-      <div className="flex flex-col gap-3">
-        <Label htmlFor="name">Organization name</Label>
-        <Input
-          id="name"
-          name="name"
-          type="text"
-          onChange={(e) => setName(e.target.value)}
-          value={name}
-          placeholder="Family..."
-          maxLength={100}
-          disabled={isLoading}
-          required
-        />
-      </div>
-    </CardDisplay>
+    <div className="flex flex-col h-full bg-[#F9F9FB] w-full text-neutral-900">
+      {/* --- HEADER (Sticky) --- */}
+      <header className="h-16 border-b border-neutral-200 bg-white px-6 flex items-center justify-between sticky top-0 z-20 shrink-0">
+        <div className="flex items-center gap-4">
+          {/* Bouton retour mobile */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.back()}
+            className="text-neutral-500 hover:text-neutral-900 md:hidden"
+          >
+            <ArrowLeft size={20} />
+          </Button>
+          <div className="flex items-center gap-2">
+            <div className="bg-indigo-50 p-1.5 rounded-lg border border-indigo-100 hidden md:block">
+              <Building2 className="w-4 h-4 text-indigo-600" />
+            </div>
+            <h1 className="!text-sm !tracking-wide font-semibold text-neutral-900">
+              Create Organization
+            </h1>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.back()}
+            disabled={isLoading}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleSubmit}
+            disabled={isLoading || name.trim().length < 2}
+            className="bg-neutral-900 hover:bg-neutral-800 text-white gap-2 shadow-sm"
+          >
+            {isLoading ? (
+              <Loader2 className="animate-spin h-4 w-4" />
+            ) : (
+              <Plus size={14} />
+            )}
+            Create Workspace
+          </Button>
+        </div>
+      </header>
+
+      {/* --- CONTENT AREA --- */}
+      <main className="flex-1 overflow-y-auto p-6">
+        <div className="max-w-2xl mx-auto flex flex-col gap-6">
+          {/* INTRO HEADER */}
+          <div className="flex items-start gap-5">
+            <div className="shrink-0 w-20 h-20 rounded-2xl bg-white border border-neutral-200 shadow-sm flex items-center justify-center p-2 text-indigo-600">
+              <Users size={32} />
+            </div>
+
+            <div className="flex-1 pt-2 space-y-2">
+              <h2 className="text-2xl font-bold text-neutral-900">
+                New Shared Workspace
+              </h2>
+              <p className="text-neutral-500 text-sm">
+                Organizations allow you to securely share passwords and manage
+                access with team members.
+              </p>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* FORM CARD */}
+          <div className="bg-white rounded-xl border border-neutral-200 shadow-sm p-6 space-y-6">
+            {/* Name Input */}
+            <div className="space-y-2">
+              <Label
+                htmlFor="orgName"
+                className="text-xs font-semibold text-neutral-500 uppercase tracking-wider"
+              >
+                Organization Name
+              </Label>
+              <div className="relative">
+                <Input
+                  id="orgName"
+                  autoFocus
+                  placeholder="e.g. Acme Corp, Design Team..."
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  maxLength={50}
+                  disabled={isLoading}
+                  className="text-lg h-12 bg-white border-neutral-200 focus:border-indigo-500/50 pl-4 pr-10"
+                />
+                {name.length > 2 && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 animate-in fade-in">
+                    <CheckCircle2 size={20} />
+                  </div>
+                )}
+              </div>
+              <p className="text-[11px] text-neutral-400">
+                This name will be visible to all members you invite.
+              </p>
+            </div>
+
+            {/* Security Info Box */}
+            <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 flex gap-3">
+              <ShieldCheck className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <h4 className="text-sm font-semibold text-indigo-900">
+                  Admin Privileges
+                </h4>
+                <p className="text-xs text-indigo-700/80 leading-relaxed">
+                  As the creator, you will automatically be assigned the{" "}
+                  <strong>Admin</strong> role. This gives you full control over
+                  member management and billing settings. A unique AES-256
+                  encryption key will be generated for this organization.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
   );
 }

@@ -20,7 +20,7 @@ export const decryptText = (
 
     return decrypted;
   } catch (error) {
-    console.error("Erreur de déchiffrement:", error);
+    // console.error("Erreur de déchiffrement:", error);
     return "Erreur de déchiffrement";
   }
 };

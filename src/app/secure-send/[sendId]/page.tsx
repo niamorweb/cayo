@@ -1,8 +1,8 @@
-import { createClient } from "@/lib/supabase/client";
 import React from "react";
 import ClientSide from "./client-side";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
 
 async function checkAndDeleteOldSend(createdAt: string, sendId: string) {
   const createdDate = new Date(createdAt);
@@ -43,8 +43,10 @@ const nothingFoundJSX = () => {
   );
 };
 export default async function page({ params }: any) {
-  const sendId = await params.sendId;
+  const { sendId } = await params;
   const supabase = await createClient();
+
+  console.log(" sendIdsendIdv ;", sendId);
 
   const { data, error } = await supabase
     .from("secure_send")

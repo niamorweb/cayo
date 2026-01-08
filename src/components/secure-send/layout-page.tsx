@@ -1,19 +1,31 @@
 "use client";
-import { Button } from "@/components/ui/button";
-import { ChevronRight, Key, Plus, Send } from "lucide-react";
-import { useState, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
+
+import React, { useState, useCallback } from "react";
+import {
+  Plus,
+  Send,
+  Search,
+  ChevronRight,
+  FileText,
+  FilterX,
+  Clock,
+} from "lucide-react";
 import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+
 import { encryptText } from "@/lib/encryption/text";
 import { encryptAESKey, generateAESKey } from "@/lib/encryption_aes";
 import { useAuthStore } from "@/lib/store/useAuthStore";
+import { useSecureSendStore } from "@/lib/store/useSecureSendStore";
+
 import CreateSecureNote from "./create";
 import ViewSecureNote from "./view";
-import SkeletonPassword from "../skeleton-password";
-import { useSecureSendStore } from "@/lib/store/useSecureSendStore";
-import GlobalLayoutPage from "../global/global-layout-page";
 import ItemLeftDisplay from "../global/item-left-display";
 
+// --- Interfaces ---
 interface SecureSend {
   id: string;
   name: string;
@@ -25,45 +37,34 @@ interface SecureSend {
   encrypted_aes_key: string;
   iv: string;
   salt: string;
+  views?: number; // Optionnel si tu veux afficher le nombre de vues
 }
 
-// const formatFullDate = (date: string) => {
-//   const d = new Date(date);
-//   const day = d.getDate().toString().padStart(2, "0");
-//   const month = (d.getMonth() + 1).toString().padStart(2, "0");
-//   const year = d.getFullYear().toString().slice(-2);
-//   const hours = d.getHours().toString().padStart(2, "0");
-//   const minutes = d.getMinutes().toString().padStart(2, "0");
-
-//   return `${day}/${month}/${year} - ${hours}:${minutes}`;
-// };
+type DisplayMode = "list" | "create" | "view";
 
 export default function SecureSendPageLayout() {
+  // --- STORE & STATE ---
   const { secureSends, isLoading, fetchSecureSends } = useSecureSendStore();
+  const originalAesKey = useAuthStore((s) => s.decryptedAesKey);
 
-  const [activeModal, setActiveModal] = useState("");
+  const [displayMode, setDisplayMode] = useState<DisplayMode>("list");
   const [selectedSecureSend, setSelectedSecureSend] =
     useState<SecureSend | null>(null);
+  const [search, setSearch] = useState("");
+
+  // Form State (Lifted up for persistence or resets)
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [generatedLink, setGeneratedLink] = useState("");
 
-  const originalAesKey = useAuthStore((s) => s.decryptedAesKey);
+  // --- LOGIC ---
 
   const copyToClipboard = useCallback(async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      toast.success("Copied!");
+      toast.success("Link copied to clipboard!");
     } catch {
-      const textArea = document.createElement("textarea");
-      textArea.value = text;
-      textArea.style.position = "fixed";
-      textArea.style.opacity = "0";
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textArea);
-      toast.success("Copied!");
+      toast.error("Failed to copy link");
     }
   }, []);
 
@@ -81,7 +82,7 @@ export default function SecureSendPageLayout() {
     const encryptedData = {
       text: encryptText(content, aesKeyItem, iv),
       name: encryptText(title, aesKeyItem, iv),
-      username: encryptText(title, aesKeyItem, iv),
+      username: encryptText(title, aesKeyItem, iv), // Champ username utilisé comme fallback titre
       iv: encryptedAesKey.iv,
       salt: encryptedAesKey.salt,
       encrypted_aes_key: encryptedAesKey.encryptedKey,
@@ -94,118 +95,188 @@ export default function SecureSendPageLayout() {
       .select();
 
     if (error) {
-      toast.error("Failed to create secure send");
+      toast.error("Failed to create secure link");
       return;
     }
 
     await fetchSecureSends();
-    setGeneratedLink(
-      `${window.location.origin}/secure-send/${data[0].id}#${aesKeyItem}`
-    );
-    toast.success("Secure send created!");
+
+    // Génération du lien avec le hash (clé de déchiffrement) qui ne part jamais au serveur
+    const link = `${window.location.origin}/secure-send/${data[0].id}#${aesKeyItem}`;
+    setGeneratedLink(link);
+
+    toast.success("Secure link ready!");
   };
 
   const deleteSecureSend = async () => {
+    if (!selectedSecureSend) return;
+
     const supabase = createClient();
-
-    if (!selectedSecureSend) {
-      toast.error("No secure send selected");
-      return;
-    }
-
     const { error } = await supabase
       .from("secure_send")
       .delete()
       .eq("id", selectedSecureSend.id);
 
     if (error) {
-      toast.error("Failed to delete secure send");
+      toast.error("Failed to delete");
       return;
     }
 
-    fetchSecureSends();
-    setActiveModal("");
+    await fetchSecureSends();
+    setDisplayMode("list");
     setSelectedSecureSend(null);
-    toast.success("Secure send deleted successfully!");
+    toast.success("Deleted successfully");
   };
 
   const handleCreateNew = () => {
     setGeneratedLink("");
     setTitle("");
     setContent("");
-    setActiveModal("create");
+    setDisplayMode("create");
   };
 
   const handleViewNote = (send: SecureSend) => {
     setSelectedSecureSend(send);
-    setActiveModal("view");
+    setDisplayMode("view");
   };
 
-  return (
-    <GlobalLayoutPage
-      name="All secure sends"
-      conditionToHide={activeModal ? true : false}
-      actionButton={
-        <Button onClick={handleCreateNew}>
-          <Plus /> New
-        </Button>
-      }
-      leftChildren={
-        <>
-          <div className="px-3 flex flex-col w-full mb-3">
-            {isLoading ? (
-              [0, 1].map((_, i) => <SkeletonPassword key={i} />)
-            ) : secureSends.length > 0 ? (
-              secureSends.map((item, index) => (
-                <ItemLeftDisplay
-                  index={index}
-                  name={item.name}
-                  description={`Created at: ${item.created_at_clean}`}
-                  illustration={
-                    item.type === "text" ? (
-                      <Send className="stroke-[1px]" />
-                    ) : (
-                      <Key className="stroke-[1px]" />
-                    )
-                  }
-                  icon={<ChevronRight />}
-                  isItemActive={selectedSecureSend?.id === item.id}
-                  onClick={() => handleViewNote(item)}
-                />
-              ))
-            ) : (
-              <div className="text-center text-muted-foreground py-8">
-                No secure sends yet
-              </div>
-            )}
-          </div>
-        </>
-      }
-      mainChildren={
-        <>
-          {activeModal === "create" && (
-            <CreateSecureNote
-              generateSecureSend={generateSecureSend}
-              setActiveModal={setActiveModal}
-              setTitle={setTitle}
-              setContent={setContent}
-              title={title}
-              content={content}
-              generatedLink={generatedLink}
-              copyToClipboard={copyToClipboard}
-            />
-          )}
+  // Filter Logic
+  const filteredSends = secureSends.filter((item) =>
+    item.name.toLowerCase().includes(search.toLowerCase())
+  );
 
-          {activeModal === "view" && selectedSecureSend && (
-            <ViewSecureNote
-              selectedSecureSend={selectedSecureSend}
-              setActiveModal={setActiveModal}
-              copyToClipboard={copyToClipboard}
-              deleteSecureSend={deleteSecureSend}
+  // --- RENDERING VIEWS (FULL WIDTH OVERLAY) ---
+
+  if (displayMode === "create") {
+    return (
+      <div className="w-full h-full bg-[#F9F9FB] p-6 overflow-y-auto">
+        <CreateSecureNote
+          generateSecureSend={generateSecureSend}
+          setActiveModal={(mode) =>
+            setDisplayMode(mode === "" ? "list" : (mode as DisplayMode))
+          }
+          setTitle={setTitle}
+          setContent={setContent}
+          title={title}
+          content={content}
+          generatedLink={generatedLink}
+          copyToClipboard={copyToClipboard}
+        />
+      </div>
+    );
+  }
+
+  if (displayMode === "view" && selectedSecureSend) {
+    return (
+      <div className="w-full h-full bg-[#F9F9FB] p-6 overflow-y-auto">
+        <ViewSecureNote
+          selectedSecureSend={selectedSecureSend}
+          setActiveModal={(mode) =>
+            setDisplayMode(mode === "" ? "list" : (mode as DisplayMode))
+          }
+          copyToClipboard={copyToClipboard}
+          deleteSecureSend={deleteSecureSend}
+        />
+      </div>
+    );
+  }
+
+  // --- MAIN LIST VIEW ---
+
+  return (
+    <div className="flex flex-col h-full bg-[#F9F9FB] w-full text-neutral-900">
+      {/* HEADER */}
+      <header className="h-16 border-b border-neutral-200 bg-white px-6 flex items-center justify-between sticky top-0 z-10 shrink-0">
+        <div className="flex items-center gap-4 w-full max-w-md">
+          <div className="relative w-full group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 w-4 h-4 group-focus-within:text-indigo-500 transition-colors" />
+            <Input
+              placeholder="Search secure sends..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 bg-neutral-100 border-transparent hover:bg-neutral-50 focus:bg-white focus:border-neutral-300 transition-all rounded-lg"
             />
+          </div>
+        </div>
+
+        <Button
+          onClick={handleCreateNew}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20 gap-2"
+        >
+          <Send className="w-4 h-4" /> New Transfer
+        </Button>
+      </header>
+
+      {/* LIST CONTENT */}
+      <main className="flex-1 p-6 overflow-y-auto">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
+              Secure Send
+            </h1>
+            <p className="text-sm text-neutral-500 mt-1">
+              Share encrypted text or files via a one-time link.
+            </p>
+          </div>
+          <span className="text-sm text-neutral-500 font-mono">
+            {filteredSends.length} items
+          </span>
+        </div>
+
+        {/* LIST CONTAINER */}
+        <div className="flex flex-col gap-2 pb-20">
+          {isLoading ? (
+            // Skeleton Loader
+            Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-[72px] w-full bg-white rounded-xl border border-neutral-200 animate-pulse"
+              />
+            ))
+          ) : filteredSends.length > 0 ? (
+            filteredSends.map((item, index) => (
+              <ItemLeftDisplay
+                key={item.id || index}
+                name={item.name || "Untitled Note"}
+                description={item.created_at_clean}
+                // Illustration personnalisée pour Secure Send
+                illustration={
+                  item.type === "text" ? (
+                    <FileText className="w-5 h-5 text-indigo-500" />
+                  ) : (
+                    <Send className="w-5 h-5 text-emerald-500" />
+                  )
+                }
+                icon={
+                  <ChevronRight className="w-4 h-4 text-neutral-300 group-hover:text-indigo-400" />
+                }
+                isItemActive={selectedSecureSend?.id === item.id}
+                onClick={() => handleViewNote(item)}
+              />
+            ))
+          ) : (
+            // Empty State
+            <div className="flex flex-col items-center justify-center py-16 text-neutral-400">
+              <div className="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center mb-4">
+                <FilterX className="w-6 h-6 opacity-50" />
+              </div>
+              <p className="font-medium text-neutral-600">
+                No secure sends found
+              </p>
+              <p className="text-sm mt-1">
+                Create a new link to start sharing securely.
+              </p>
+              <Button
+                variant="link"
+                onClick={handleCreateNew}
+                className="mt-2 text-indigo-600"
+              >
+                Create new
+              </Button>
+            </div>
           )}
-        </>
-      }
-    />
+        </div>
+      </main>
+    </div>
   );
 }
