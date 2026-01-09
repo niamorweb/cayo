@@ -200,17 +200,14 @@ export default function SecureSendPageLayout() {
           </div>
         </div>
 
-        <Button
-          onClick={handleCreateNew}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20 gap-2"
-        >
+        <Button onClick={handleCreateNew} variant="default">
           <Send className="w-4 h-4" /> New Transfer
         </Button>
       </header>
 
       {/* LIST CONTENT */}
       <main className="flex-1 p-6 overflow-y-auto">
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-6 flex flex-col md:flex-row gap-3 md:gap-1 md:items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-neutral-900">
               Secure Send

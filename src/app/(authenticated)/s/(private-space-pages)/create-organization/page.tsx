@@ -108,24 +108,25 @@ export default function CreateOrganizationPage() {
   return (
     <div className="flex flex-col h-full bg-[#F9F9FB] w-full text-neutral-900">
       {/* --- HEADER (Sticky) --- */}
-      <header className="h-16 border-b border-neutral-200 bg-white px-6 flex items-center justify-between sticky top-0 z-20 shrink-0">
-        <div className="flex items-center gap-4">
+      <header className="h-14 md:h-16 border-b border-neutral-200 bg-white px-4 md:px-6 flex items-center justify-between sticky top-0 z-20 shrink-0">
+        <div className="flex items-center gap-2 md:gap-4">
           {/* Bouton retour mobile */}
           <Button
             variant="ghost"
             size="icon"
             onClick={() => router.back()}
-            className="text-neutral-500 hover:text-neutral-900 md:hidden"
+            className="text-neutral-500 hover:text-neutral-900 md:hidden -ml-2"
           >
             <ArrowLeft size={20} />
           </Button>
+
           <div className="flex items-center gap-2">
             <div className="bg-indigo-50 p-1.5 rounded-lg border border-indigo-100 hidden md:block">
               <Building2 className="w-4 h-4 text-indigo-600" />
             </div>
-            <h1 className="!text-sm !tracking-wide font-semibold text-neutral-900">
+            <span className="text-sm font-semibold text-neutral-900 tracking-wide">
               Create Organization
-            </h1>
+            </span>
           </div>
         </div>
 
@@ -135,6 +136,7 @@ export default function CreateOrganizationPage() {
             size="sm"
             onClick={() => router.back()}
             disabled={isLoading}
+            className="hidden md:flex"
           >
             Cancel
           </Button>
@@ -142,32 +144,33 @@ export default function CreateOrganizationPage() {
             size="sm"
             onClick={handleSubmit}
             disabled={isLoading || name.trim().length < 2}
-            className="bg-neutral-900 hover:bg-neutral-800 text-white gap-2 shadow-sm"
+            className="bg-neutral-900 hover:bg-neutral-800 text-white gap-2 shadow-sm h-9"
           >
             {isLoading ? (
-              <Loader2 className="animate-spin h-4 w-4" />
+              <Loader2 className="animate-spin h-3.5 w-3.5" />
             ) : (
               <Plus size={14} />
             )}
-            Create Workspace
+            <span className="hidden md:inline">Create Workspace</span>
+            <span className="md:hidden">Create</span>
           </Button>
         </div>
       </header>
 
       {/* --- CONTENT AREA --- */}
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-y-auto p-4 md:p-6">
         <div className="max-w-2xl mx-auto flex flex-col gap-6">
           {/* INTRO HEADER */}
-          <div className="flex items-start gap-5">
-            <div className="shrink-0 w-20 h-20 rounded-2xl bg-white border border-neutral-200 shadow-sm flex items-center justify-center p-2 text-indigo-600">
+          <div className="flex items-start gap-4 md:gap-5">
+            <div className="shrink-0 w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white border border-neutral-200 shadow-sm flex items-center justify-center p-2 text-indigo-600">
               <Users size={32} />
             </div>
 
-            <div className="flex-1 pt-2 space-y-2">
-              <h2 className="text-2xl font-bold text-neutral-900">
+            <div className="flex-1 pt-1 md:pt-2 space-y-1 md:space-y-2">
+              <h2 className="text-xl md:text-2xl font-bold text-neutral-900">
                 New Shared Workspace
               </h2>
-              <p className="text-neutral-500 text-sm">
+              <p className="text-neutral-500 text-sm leading-relaxed">
                 Organizations allow you to securely share passwords and manage
                 access with team members.
               </p>
@@ -177,7 +180,7 @@ export default function CreateOrganizationPage() {
           <Separator />
 
           {/* FORM CARD */}
-          <div className="bg-white rounded-xl border border-neutral-200 shadow-sm p-6 space-y-6">
+          <div className="bg-white rounded-xl border border-neutral-200 shadow-sm p-4 md:p-6 space-y-6">
             {/* Name Input */}
             <div className="space-y-2">
               <Label
@@ -195,7 +198,7 @@ export default function CreateOrganizationPage() {
                   onChange={(e) => setName(e.target.value)}
                   maxLength={50}
                   disabled={isLoading}
-                  className="text-lg h-12 bg-white border-neutral-200 focus:border-indigo-500/50 pl-4 pr-10"
+                  className="text-base md:text-lg h-11 md:h-12 bg-white border-neutral-200 focus:border-indigo-500/50 pl-4 pr-10"
                 />
                 {name.length > 2 && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 animate-in fade-in">
@@ -219,7 +222,7 @@ export default function CreateOrganizationPage() {
                   As the creator, you will automatically be assigned the{" "}
                   <strong>Admin</strong> role. This gives you full control over
                   member management and billing settings. A unique AES-256
-                  encryption key will be generated for this organization.
+                  encryption key will be generated.
                 </p>
               </div>
             </div>

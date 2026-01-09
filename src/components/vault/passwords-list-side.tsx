@@ -321,7 +321,7 @@ export default function PasswordsListSide({
                   </div>
 
                   {/* Username (Desktop) */}
-                  <div className="flex-1 items-center text-sm text-neutral-600 overflow-hidden">
+                  <div className="flex-1 hidden md:flex items-center text-sm text-neutral-600 overflow-hidden">
                     <span className="truncate max-w-[150px]">
                       {item.username}
                     </span>
@@ -407,9 +407,16 @@ export default function PasswordsListSide({
                           Edit Details
                         </DropdownMenuItem>
                         <DropdownMenuItem
+                          disabled={!item.username}
                           onClick={(e) => copyToClipboard(e, item.username)}
                         >
                           Copy Username
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={!item.password}
+                          onClick={(e) => copyToClipboard(e, item.password)}
+                        >
+                          Copy password
                         </DropdownMenuItem>
                         {item.url && (
                           <DropdownMenuItem

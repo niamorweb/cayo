@@ -19,6 +19,7 @@ import {
   Calendar,
   Shield,
   History,
+  Check, // Ajout de l'icone Check
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -45,12 +46,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 import { encryptText } from "@/lib/encryption/text";
 import { fetchAndStorePasswordsAndFolders } from "@/lib/fetchPasswordsAndFolders";
@@ -62,7 +57,6 @@ import SharePassword from "../secure-send/action-share-password";
 import { cn } from "@/lib/utils";
 
 // --- Interfaces ---
-// (Gardées identiques à ton code original pour compatibilité)
 interface PasswordData {
   id: string;
   name: string;
@@ -93,7 +87,7 @@ interface PasswordSelectedProps {
   isAlreadyInTrash?: boolean;
 }
 
-// --- SOUS-COMPOSANT CHAMP (Pour éviter la répétition) ---
+// --- SOUS-COMPOSANT CHAMP OPTIMISÉ MOBILE ---
 const DetailField = ({
   label,
   value,
@@ -109,42 +103,68 @@ const DetailField = ({
   isEditing: boolean;
   onChange?: (val: string) => void;
   type?: string;
-  onCopy?: () => void;
+  onCopy?: (text: string) => void;
   className?: string;
   isPassword?: boolean;
 }) => {
   const [showPass, setShowPass] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
   const displayType = isPassword ? (showPass ? "text" : "password") : type;
+
+  // Gestion du clic pour copier
+  const handleContainerClick = () => {
+    if (isEditing || !value) return;
+
+    if (onCopy) onCopy(value);
+
+    // Feedback visuel
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  };
 
   return (
     <div className={cn("group flex flex-col gap-1.5 py-3", className)}>
       <Label className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
         {label}
       </Label>
+
       <div className="relative flex items-center">
         {isEditing ? (
+          // MODE ÉDITION
           <div className="relative w-full">
             <Input
               type={displayType}
               value={value}
               onChange={(e) => onChange?.(e.target.value)}
-              className="pr-10 bg-white"
+              className="pr-10 bg-white h-11 md:h-10 text-base md:text-sm" // Input plus grand sur mobile
             />
             {isPassword && (
               <button
+                type="button"
                 onClick={() => setShowPass(!showPass)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                className="absolute right-0 top-0 h-full px-3 text-neutral-400 hover:text-neutral-600 flex items-center justify-center"
               >
-                {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             )}
           </div>
         ) : (
-          <div className="flex items-center justify-between w-full h-10 px-3 rounded-md bg-neutral-50/50 border border-transparent hover:border-neutral-200 hover:bg-white transition-all group-hover:shadow-sm">
+          // MODE LECTURE (Tap-to-copy)
+          <div
+            onClick={handleContainerClick}
+            className={cn(
+              "relative flex items-center justify-between w-full min-h-[44px] px-3 rounded-lg border transition-all cursor-pointer select-none active:scale-[0.99]",
+              isCopied
+                ? "bg-green-50 border-green-200"
+                : "bg-neutral-50/50 border-transparent hover:border-neutral-200 hover:bg-white"
+            )}
+          >
+            {/* Contenu Texte */}
             <span
               className={cn(
-                "text-sm truncate select-all font-medium text-neutral-800",
-                isPassword && !showPass && "font-mono tracking-widest"
+                "text-sm truncate font-medium flex-1 mr-8", // mr-8 pour laisser place aux icones
+                isCopied ? "text-green-800" : "text-neutral-800",
+                isPassword && !showPass && "font-mono tracking-widest text-xs" // Password caché plus petit
               )}
             >
               {isPassword && !showPass
@@ -154,37 +174,38 @@ const DetailField = ({
                   )}
             </span>
 
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Actions (Oeil / Copy / Check) */}
+            <div className="absolute right-2 flex items-center gap-1">
+              {/* Bouton Oeil (Password seulement) */}
               {isPassword && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-7 w-7"
-                  onClick={() => setShowPass(!showPass)}
+                <div
+                  className="p-2 text-neutral-400 hover:text-neutral-600 cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation(); // Empêche la copie quand on clique sur l'oeil
+                    setShowPass(!showPass);
+                  }}
                 >
-                  {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
-                </Button>
+                  {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                </div>
               )}
+
+              {/* Indicateur Copie (Icône changeante) */}
               {value && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-neutral-500 hover:text-primary"
-                        onClick={onCopy}
-                      >
-                        <Copy size={14} />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Copier</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <div
+                  className={cn(
+                    "p-2 transition-colors duration-200",
+                    isCopied
+                      ? "text-green-600 scale-110"
+                      : "text-neutral-300 md:opacity-0 md:group-hover:opacity-100"
+                  )}
+                >
+                  {isCopied ? <Check size={16} /> : <Copy size={16} />}
+                </div>
               )}
             </div>
+
+            {/* Petit hint mobile si vide */}
+            {!value && <span className="absolute inset-0" />}
           </div>
         )}
       </div>
@@ -324,7 +345,7 @@ export default function PasswordSelected({
   return (
     <div className="h-full flex flex-col bg-white md:bg-[#F9F9FB]">
       {/* --- HEADER --- */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 bg-white sticky top-0 z-20">
+      <div className="flex items-center justify-between px-4 md:px-6 py-3 border-b border-neutral-200 bg-white sticky top-0 z-20">
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
@@ -333,9 +354,10 @@ export default function PasswordSelected({
               setActiveModal(null);
               setSelectedPassword(null);
             }}
-            className="text-neutral-500 hover:text-neutral-900"
+            className="text-neutral-500 hover:text-neutral-900 -ml-2 md:ml-0"
           >
-            <X size={20} />
+            <ArrowLeft size={20} className="md:hidden" />
+            <X size={20} className="hidden md:block" />
           </Button>
           <span className="text-sm font-semibold text-neutral-500 hidden md:inline-block">
             Détails
@@ -359,6 +381,7 @@ export default function PasswordSelected({
                     setIsEditing(false);
                   }}
                   disabled={isLoading}
+                  className="hidden md:flex"
                 >
                   Annuler
                 </Button>
@@ -366,9 +389,11 @@ export default function PasswordSelected({
                   size="sm"
                   onClick={handleSave}
                   disabled={isLoading}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 h-9"
                 >
-                  <Save size={14} /> Enregistrer
+                  <Save size={14} />
+                  <span className="hidden md:inline">Save</span>
+                  <span className="md:hidden">Save</span>
                 </Button>
               </>
             ) : (
@@ -379,20 +404,21 @@ export default function PasswordSelected({
                   setOriginalPassword(selectedPassword);
                   setIsEditing(true);
                 }}
-                className="gap-2"
+                className="gap-2 h-9"
               >
-                <Pen size={14} /> Modifier
+                <Pen size={14} />
+                <span className="hidden md:inline">Edit</span>
               </Button>
             ))}
         </div>
       </div>
 
       {/* --- SCROLLABLE CONTENT --- */}
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-2xl mx-auto flex flex-col gap-6">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6">
+        <div className="max-w-2xl mx-auto flex flex-col gap-6 pb-10">
           {/* IDENTITY CARD */}
-          <div className="flex items-start gap-5">
-            <div className="shrink-0 w-20 h-20 rounded-2xl bg-white border border-neutral-200 shadow-sm flex items-center justify-center overflow-hidden p-2">
+          <div className="flex items-start gap-4 md:gap-5">
+            <div className="shrink-0 w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white border border-neutral-200 shadow-sm flex items-center justify-center overflow-hidden p-2">
               {selectedPassword.url && !logoError ? (
                 <Image
                   src={getLogoUrl(selectedPassword.url)}
@@ -412,16 +438,16 @@ export default function PasswordSelected({
                 <Input
                   value={selectedPassword.name}
                   onChange={(e) => handleInputChange("name", e.target.value)}
-                  className="text-xl font-bold h-10 mb-2"
+                  className="text-lg md:text-xl font-bold h-10 mb-2"
                   placeholder="Nom du service"
                 />
               ) : (
-                <h1 className="text-2xl font-bold text-neutral-900 truncate mb-1">
+                <h1 className="text-xl md:text-2xl font-bold text-neutral-900 truncate mb-1">
                   {selectedPassword.name}
                 </h1>
               )}
 
-              <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-500">
+              <div className="flex flex-wrap items-center gap-2 md:gap-3 text-sm text-neutral-500">
                 {isEditing ? (
                   <Select
                     value={selectedPassword.group_id || "null"}
@@ -432,11 +458,11 @@ export default function PasswordSelected({
                       })
                     }
                   >
-                    <SelectTrigger className="h-8 w-[180px]">
+                    <SelectTrigger className="h-8 w-full md:w-[180px]">
                       <SelectValue placeholder="Groupe" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="null">Aucun groupe</SelectItem>
+                      <SelectItem value="null">No group</SelectItem>
                       {orgGroups.map((g) => (
                         <SelectItem key={g.id} value={g.id}>
                           {g.name}
@@ -464,7 +490,7 @@ export default function PasswordSelected({
                     }
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-1 text-indigo-600 hover:underline"
+                    className="flex items-center gap-1 text-indigo-600 hover:underline truncate max-w-[200px]"
                   >
                     {
                       new URL(
@@ -483,39 +509,39 @@ export default function PasswordSelected({
           <Separator />
 
           {/* CREDENTIALS BLOCK */}
-          <div className="bg-white rounded-xl border border-neutral-200 shadow-sm p-5 space-y-1">
+          <div className="bg-white rounded-xl border border-neutral-200 shadow-sm p-4 md:p-5 space-y-1">
             <DetailField
-              label="Identifiant / Email"
+              label="Username / Email"
               value={selectedPassword.username}
               isEditing={isEditing}
               onChange={(v) => handleInputChange("username", v)}
-              onCopy={() => copyToClipboard(selectedPassword.username)}
+              onCopy={copyToClipboard}
             />
 
             <Separator className="opacity-50" />
 
             <DetailField
-              label="Mot de passe"
+              label="Password"
               value={selectedPassword.password}
               isEditing={isEditing}
               onChange={(v) => handleInputChange("password", v)}
-              onCopy={() => copyToClipboard(selectedPassword.password)}
+              onCopy={copyToClipboard}
               isPassword={true}
             />
 
             <Separator className="opacity-50" />
 
             <DetailField
-              label="Site Web (URL)"
+              label="Website (URL)"
               value={selectedPassword.url}
               isEditing={isEditing}
               onChange={(v) => handleInputChange("url", v)}
-              onCopy={() => copyToClipboard(selectedPassword.url)}
+              onCopy={copyToClipboard}
             />
           </div>
 
           {/* NOTES BLOCK */}
-          <div className="bg-white rounded-xl border border-neutral-200 shadow-sm p-5 flex flex-col gap-3">
+          <div className="bg-white rounded-xl border border-neutral-200 shadow-sm p-4 md:p-5 flex flex-col gap-3">
             <Label className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
               Notes
             </Label>
@@ -523,80 +549,71 @@ export default function PasswordSelected({
               <Textarea
                 value={selectedPassword.note}
                 onChange={(e) => handleInputChange("note", e.target.value)}
-                className="min-h-[120px] bg-neutral-50 resize-y"
-                placeholder="Ajouter des notes, codes de sécurité..."
+                className="min-h-[120px] bg-neutral-50 resize-y text-base"
+                placeholder="Add notes, security codes..."
               />
             ) : (
               <div
                 className={cn(
-                  "text-sm text-neutral-700 whitespace-pre-wrap leading-relaxed p-3 rounded-md bg-neutral-50/50 border border-neutral-100 min-h-[80px]",
+                  "text-sm text-neutral-700 whitespace-pre-wrap leading-relaxed p-3 rounded-lg bg-neutral-50/50 border border-neutral-100 min-h-[80px]",
                   !selectedPassword.note &&
                     "text-neutral-400 italic flex items-center justify-center"
                 )}
               >
-                {selectedPassword.note || "Aucune note ajoutée."}
+                {selectedPassword.note || "No note added."}
               </div>
             )}
           </div>
 
           {/* META INFO */}
-          <div className="flex items-center justify-between px-2 text-xs text-neutral-400">
+          <div className="flex flex-col md:flex-row md:items-center justify-between px-2 text-xs text-neutral-400 gap-2">
             <div className="flex items-center gap-4">
-              <span
-                className="flex items-center gap-1"
-                title="Date de modification"
-              >
+              <span className="flex items-center gap-1">
                 <Calendar size={12} />{" "}
                 {new Date(selectedPassword.modified_at).toLocaleDateString()}
               </span>
-              <span
-                className="flex items-center gap-1"
-                title="Dernière modification par"
-              >
-                <History size={12} /> {selectedPassword.email || "Moi"}
+              <span className="flex items-center gap-1">
+                <History size={12} /> {selectedPassword.email || "Me"}
               </span>
             </div>
             <div className="flex items-center gap-1">
-              <Shield size={12} /> AES-256 Encrypted
+              <Shield size={12} /> AES-256 encrypted
             </div>
           </div>
 
           {/* DANGER ZONE (Delete/Restore) */}
           {canEdit && (
-            <div className="mt-8 pt-6 border-t border-neutral-200">
+            <div className="mt-4 md:mt-8 pt-6 border-t border-neutral-200">
               {selectedPassword.trash ? (
-                <div className="flex gap-4">
+                <div className="flex flex-col md:flex-row gap-4">
                   <Button
                     onClick={handleRestore}
-                    className="flex-1"
+                    className="flex-1 w-full"
                     variant="outline"
                   >
-                    <Undo2 className="mr-2 h-4 w-4" /> Restaurer
+                    <Undo2 className="mr-2 h-4 w-4" /> Restaure
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button className="flex-1" variant="destructive">
-                        <Trash2 className="mr-2 h-4 w-4" /> Supprimer
-                        définitivement
+                      <Button className="flex-1 w-full" variant="destructive">
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          Suppression définitive
-                        </AlertDialogTitle>
+                        <AlertDialogTitle>Delete the password</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Cette action est irréversible. Voulez-vous vraiment
-                          supprimer cet élément ?
+                          This action is irreversible. Are you sure you want to
+                          delete this item?
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction
                           onClick={handleDelete}
                           className="bg-red-600 hover:bg-red-700"
                         >
-                          Confirmer
+                          Confirm
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -606,10 +623,10 @@ export default function PasswordSelected({
                 <div className="flex justify-start">
                   <Button
                     variant="ghost"
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    className="w-full md:w-auto text-red-600 hover:text-red-700 hover:bg-red-50 justify-center md:justify-start"
                     onClick={handleDelete}
                   >
-                    <Trash2 className="mr-2 h-4 w-4" /> Mettre à la corbeille
+                    <Trash2 className="mr-2 h-4 w-4" /> Move to trash
                   </Button>
                 </div>
               )}
