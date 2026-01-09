@@ -37,7 +37,7 @@ interface SecureSend {
   encrypted_aes_key: string;
   iv: string;
   salt: string;
-  views?: number; // Optionnel si tu veux afficher le nombre de vues
+  views?: number;
 }
 
 type DisplayMode = "list" | "create" | "view";
@@ -170,6 +170,7 @@ export default function SecureSendPageLayout() {
     return (
       <div className="w-full h-full bg-[#F9F9FB] p-6 overflow-y-auto">
         <ViewSecureNote
+          // @ts-ignore
           selectedSecureSend={selectedSecureSend}
           setActiveModal={(mode) =>
             setDisplayMode(mode === "" ? "list" : (mode as DisplayMode))

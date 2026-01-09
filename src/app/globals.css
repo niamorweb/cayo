@@ -73,7 +73,8 @@
   --popover-foreground: oklch(0.145 0 0);
   /* --primary: oklch(0.205 0 0); */
   /* --primary: #1a5ffa; */
-  --primary: #12a78c;
+  /* --primary: #12a78c; */
+  --primary: #4f39f6;
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(97.015% 0.00011 271.152);
   --secondary-foreground: oklch(0.205 0 0);
@@ -127,10 +128,6 @@
 
 h1 {
   @apply scroll-m-20 text-[32px] md:text-[72px] font-bold tracking-[-0.1rem] md:tracking-[-0.3rem] leading-[110%] text-balance;
-}
-
-h2 {
-  @apply scroll-m-20 text-neutral-800 text-balance text-3xl md:text-4xl tracking-tight font-semibold;
 }
 
 h3 {

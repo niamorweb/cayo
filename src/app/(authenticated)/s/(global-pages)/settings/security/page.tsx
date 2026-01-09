@@ -95,6 +95,7 @@ const PasswordStrength = ({ password }: { password: string }) => {
       <Progress
         value={(score / 5) * 100}
         className={cn("h-1.5", "[&>div]:transition-all [&>div]:duration-500")}
+        //@ts-ignore
         indicatorClassName={color}
       />
 
@@ -161,7 +162,6 @@ export default function SecurityPage() {
       }
 
       // 2. Re-Encrypt Master AES Key with NEW Password
-      // C'est l'étape critique du Zero-Knowledge : on change la serrure du coffre.
       const encryptedAesKey = encryptAESKey(
         decryptedAesKey,
         values.newPassword

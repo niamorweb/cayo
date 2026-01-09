@@ -79,12 +79,12 @@ export default function SecurityPage() {
             Cayo{" "}
             <span className="text-neutral-500 font-normal">/ Security</span>
           </Link>
-          <Button
-            variant="outline"
-            className="border-white/10 text-white hover:bg-white/5 rounded-full text-xs h-8"
+          <Link
+            href="/signup"
+            className="!flex items-center justify-center px-6 border border-white/10 text-white hover:bg-white/5 rounded-full text-xs h-8"
           >
-            Read Audit
-          </Button>
+            Try it now
+          </Link>
         </div>
       </nav>
 
@@ -301,12 +301,12 @@ export default function SecurityPage() {
             <Button className="bg-white text-black hover:bg-neutral-200 rounded-full px-8 h-12">
               View on GitHub
             </Button>
-            <Button
-              variant="outline"
-              className="border-white/10 hover:bg-white/5 text-white rounded-full px-8 h-12"
+            <Link
+              href="/signup"
+              className="!flex items-center justify-center border border-white/10 hover:bg-white/5 text-white rounded-full px-8 h-12"
             >
-              Read Whitepaper
-            </Button>
+              Start for free
+            </Link>
           </div>
         </section>
       </main>

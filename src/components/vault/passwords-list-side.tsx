@@ -12,6 +12,7 @@ import {
   Filter,
   Trash,
   FilterX,
+  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -47,12 +48,13 @@ export interface PasswordItem {
   id: string;
   name: string;
   username: string;
+  password: string;
   url: string;
   group_name?: string;
   group_id?: string | null;
   source?: "organization" | "group";
   modified_at?: string;
-  favorite?: boolean; // Ajouté pour l'icone Star
+  favorite?: boolean;
 }
 
 export interface Organization {
@@ -74,6 +76,8 @@ export default function PasswordsListSide({
   currentOrganization,
   isTrash,
 }: PasswordsListSideProps) {
+  console.log("passwords : ", passwords);
+
   // --- STATE ---
   const [search, setSearch] = useState("");
   const [selectedPassword, setSelectedPassword] = useState<any>(null);
@@ -255,11 +259,12 @@ export default function PasswordsListSide({
         {/* LIST VIEW (Tableau Clean) */}
         <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden min-h-[200px]">
           {/* Table Header */}
-          <div className="grid grid-cols-12 gap-4 px-6 py-3 border-b border-neutral-100 bg-neutral-50/50 text-xs font-medium text-neutral-500 uppercase tracking-wider">
-            <div className="col-span-8 md:col-span-4">Name</div>
-            <div className="col-span-3 hidden md:block">Username</div>
-            <div className="col-span-3 hidden md:block">Website</div>
-            <div className="col-span-4 md:col-span-2 text-right">Actions</div>
+          <div className="flex items-center gap-4 px-6 py-3 border-b border-neutral-100 bg-neutral-50/50 text-xs font-medium text-neutral-500 uppercase tracking-wider">
+            <div className="flex-[2]">Name</div>
+            <div className="flex-1 hidden md:block">Username</div>
+            <div className="flex-1 hidden md:block">Password</div>
+            <div className="flex-1 hidden md:block">Website</div>
+            <div className="flex-1 text-right">Actions</div>
           </div>
 
           {/* Empty State */}
@@ -287,10 +292,10 @@ export default function PasswordsListSide({
                     setSelectedPassword(item);
                     setDisplayMode("edit-password");
                   }}
-                  className="grid grid-cols-12 gap-4 px-6 py-4 items-center group hover:bg-neutral-50 transition-colors cursor-pointer"
+                  className="flex items-center gap-4 px-6 py-4 group hover:bg-neutral-50 transition-colors cursor-pointer"
                 >
                   {/* Name & Icon */}
-                  <div className="col-span-8 md:col-span-4 flex items-center gap-3 overflow-hidden">
+                  <div className="flex-[2] flex items-center gap-3 overflow-hidden">
                     <div className="shrink-0 w-9 h-9 rounded-lg bg-neutral-100 border border-neutral-200 flex items-center justify-center font-bold text-xs overflow-hidden">
                       {item.url ? (
                         <Image
@@ -316,7 +321,7 @@ export default function PasswordsListSide({
                   </div>
 
                   {/* Username (Desktop) */}
-                  <div className="col-span-3 hidden md:flex items-center text-sm text-neutral-600 overflow-hidden">
+                  <div className="flex-1 items-center text-sm text-neutral-600 overflow-hidden">
                     <span className="truncate max-w-[150px]">
                       {item.username}
                     </span>
@@ -329,8 +334,32 @@ export default function PasswordsListSide({
                     </button>
                   </div>
 
+                  {/* Password (Desktop) */}
+                  <div className="flex-1 hidden md:flex items-center gap-2 overflow-hidden">
+                    {item.password && (
+                      <div className="flex items-center gap-2 group/pass">
+                        <div className="px-2 py-1 rounded-full bg-neutral-100 border border-neutral-200 text-xs text-neutral-500 flex items-center gap-1.5 max-w-full">
+                          <Lock className="w-3 h-3 shrink-0" />
+                          {/* On affiche des points statiques pour masquer visuellement */}
+                          <span className="font-mono tracking-widest mt-0.5">
+                            ••••••••••
+                          </span>
+                        </div>
+
+                        {/* Bouton pour copier le vrai mot de passe */}
+                        <button
+                          onClick={(e) => copyToClipboard(e, item.password)}
+                          className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-indigo-600 transition-all p-1 hover:bg-indigo-50 rounded"
+                          title="Copy Password"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Website (Desktop) */}
-                  <div className="col-span-3 hidden md:flex items-center gap-2 overflow-hidden">
+                  <div className="flex-1 hidden md:flex items-center gap-2 overflow-hidden">
                     {item.url && (
                       <div className="px-2 py-1 rounded-full bg-neutral-100 border border-neutral-200 text-xs text-neutral-600 flex items-center gap-1 max-w-full truncate">
                         <Globe className="w-3 h-3 shrink-0" />
@@ -340,13 +369,13 @@ export default function PasswordsListSide({
                   </div>
 
                   {/* Actions */}
-                  <div className="col-span-4 md:col-span-2 flex items-center justify-end gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
+                  <div className="flex-1 md:col-span-2 flex items-center justify-end gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                    {/* <Button
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-neutral-400 hover:text-yellow-500 hidden md:flex"
                       onClick={(e) => {
-                        e.stopPropagation(); /* Logic favorite */
+                        e.stopPropagation();
                       }}
                     >
                       <Star
@@ -356,7 +385,7 @@ export default function PasswordsListSide({
                             : "w-4 h-4"
                         }
                       />
-                    </Button>
+                    </Button> */}
 
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

@@ -177,19 +177,21 @@ export default function PortfolioStarPage() {
               className="flex flex-wrap gap-4"
             >
               <Button
+                asChild
                 size="lg"
                 className="h-14 rounded-full px-8 bg-white text-black hover:bg-neutral-200 font-medium text-base"
               >
-                Start Vault
-                <ArrowRight className="ml-2 w-4 h-4" />
+                <Link href="/signup">
+                  Start Vault
+                  <ArrowRight className="ml-2 w-4 h-4" />
+                </Link>
               </Button>
-              <button
-                size="lg"
-                variant="outline"
-                className="h-14 rounded-full px-8 border border-white/10 bg-transparent hover:bg-white/5"
+              <Link
+                href="/security"
+                className="h-14 !flex items-center justify-center rounded-full px-8 border border-white/10 bg-transparent hover:bg-white/5"
               >
                 How it works ?
-              </button>
+              </Link>
             </motion.div>
 
             {/* Trust badge */}
@@ -275,7 +277,7 @@ export default function PortfolioStarPage() {
             />
             <FloatingCard
               icon={CreditCard}
-              label="Amex"
+              label="Revolut"
               user="Dad"
               delay={0.6}
               x="left-[5%]"

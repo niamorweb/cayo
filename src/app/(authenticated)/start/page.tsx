@@ -5,12 +5,10 @@ import Link from "next/link";
 import { fetchAndDecryptOrganizations } from "@/lib/fetchAndDecryptOrganizations.ts";
 import { useOrganizationStore } from "@/lib/store/organizationStore";
 
-// UI & Icons
 import { Shield, Users, ChevronRight, LayoutGrid, Plus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-// --- ANIMATION VARIANTS ---
 const containerVariants = {
   hidden: { opacity: 0 },
   show: {
@@ -31,9 +29,6 @@ const itemVariants = {
   },
 };
 
-// --- COMPONENTS ---
-
-// Un composant de carte réutilisable pour garder le code propre
 const SpaceCard = ({
   href,
   icon: Icon,
@@ -42,6 +37,7 @@ const SpaceCard = ({
   colorClass,
   delay = 0,
 }: any) => (
+  //@ts-ignore
   <motion.div variants={itemVariants}>
     <Link href={href} className="group relative block w-full">
       <div className="absolute inset-0 bg-gradient-to-r from-white/5 to-white/0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -166,6 +162,7 @@ export default function StartPage() {
             {/* PERSONAL SECTION */}
             <div className="space-y-3">
               <motion.h4
+                //@ts-ignore
                 variants={itemVariants}
                 className="text-xs font-semibold text-neutral-500 uppercase tracking-widest pl-2"
               >
@@ -184,26 +181,17 @@ export default function StartPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between pl-2 pr-1">
                 <motion.h4
+                  //@ts-ignore
                   variants={itemVariants}
                   className="text-xs font-semibold text-neutral-500 uppercase tracking-widest"
                 >
                   Shared Workspaces
                 </motion.h4>
-                {/* Optionnel: Bouton pour créer une org rapidement */}
-                {!isLoading && (
-                  <motion.button
-                    variants={itemVariants}
-                    className="text-xs text-indigo-400 hover:text-white transition-colors flex items-center gap-1"
-                  >
-                    <Plus size={12} /> New
-                  </motion.button>
-                )}
               </div>
 
               <div className="flex flex-col gap-3">
                 <AnimatePresence mode="wait">
                   {isLoading ? (
-                    // Loading State
                     <motion.div
                       key="loading"
                       initial={{ opacity: 0 }}
@@ -215,7 +203,6 @@ export default function StartPage() {
                       <SkeletonCard />
                     </motion.div>
                   ) : organizations && organizations.length > 0 ? (
-                    // List of Orgs
                     organizations.map((org, i) => (
                       <SpaceCard
                         key={org.id || i}
@@ -227,8 +214,8 @@ export default function StartPage() {
                       />
                     ))
                   ) : (
-                    // Empty State
                     <motion.div
+                      //@ts-ignore
                       variants={itemVariants}
                       className="p-6 rounded-2xl border border-dashed border-white/10 bg-white/5 text-center"
                     >
