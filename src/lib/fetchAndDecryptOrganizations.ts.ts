@@ -5,7 +5,7 @@ import { createClient } from "./supabase/client";
 import {
   decryptAesKeyWithPrivateKey,
   decryptPrivateKey,
-} from "./encryption_aes";
+} from "./encryption/aes";
 import { useAuthStore } from "./store/useAuthStore";
 import { decryptText } from "./encryption/text";
 import { getFaviconUrl } from "./get-flavicon-url";
@@ -52,7 +52,10 @@ const CACHE_DURATION = 10000;
 /**
  * Helper de déchiffrement typé
  */
-function decryptPasswordHelper(x: RawPassword, decryptedOrgAesKey: string) {
+export function decryptPasswordHelper(
+  x: RawPassword,
+  decryptedOrgAesKey: string
+) {
   const decryptedUrl = x.url
     ? decryptText(x.url, decryptedOrgAesKey, x.iv)
     : null;

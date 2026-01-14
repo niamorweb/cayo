@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 
 import { createClient } from "@/lib/supabase/client";
-import { generateAESKey } from "@/lib/encryption_aes";
+import { generateAESKey } from "@/lib/encryption/aes";
 import { encryptWithRsaPublicKey } from "@/lib/encryption/rsa";
 import { fetchAndStorePasswordsAndFolders } from "@/lib/fetchPasswordsAndFolders";
 import { fetchAndDecryptOrganizations } from "@/lib/fetchAndDecryptOrganizations.ts";

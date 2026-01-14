@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Send, Copy } from "lucide-react";
 import React, { useState } from "react";
 import { useAuthStore } from "@/lib/store/useAuthStore";
-import { encryptAESKey, generateAESKey } from "@/lib/encryption_aes";
+import { encryptAESKey, generateAESKey } from "@/lib/encryption/aes";
 import { createClient } from "@/lib/supabase/client";
 import { encryptText } from "@/lib/encryption/text";
 import { toast } from "sonner";

@@ -12,7 +12,7 @@ import {
   generateRsaKeyPair,
   importAesKeyFromBase64,
 } from "@/lib/encryption/rsa";
-import { encryptAESKey, generateAESKey } from "@/lib/encryption_aes";
+import { encryptAESKey, generateAESKey } from "@/lib/encryption/aes";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

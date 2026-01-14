@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 import { encryptText } from "@/lib/encryption/text";
-import { encryptAESKey, generateAESKey } from "@/lib/encryption_aes";
+import { encryptAESKey, generateAESKey } from "@/lib/encryption/aes";
 import { useAuthStore } from "@/lib/store/useAuthStore";
 import { useSecureSendStore } from "@/lib/store/useSecureSendStore";
 

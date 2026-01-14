@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/form";
 
 import { createClient } from "@/lib/supabase/client";
-import { encryptAESKey } from "@/lib/encryption_aes";
+import { encryptAESKey } from "@/lib/encryption/aes";
 import { useAuthStore } from "@/lib/store/useAuthStore";
 import { cn } from "@/lib/utils";
 

@@ -19,7 +19,8 @@ import {
   Calendar,
   Shield,
   History,
-  Check, // Ajout de l'icone Check
+  Check,
+  Users, // Ajout de l'icone Check
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,7 @@ import { useOrganizationStore } from "@/lib/store/organizationStore";
 import { getLogoUrl } from "@/lib/getLogoUrl";
 import SharePassword from "../secure-send/action-share-password";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 
 // --- Interfaces ---
 interface PasswordData {
@@ -230,6 +232,7 @@ export default function PasswordSelected({
   const getOrganizationGroups = useOrganizationStore(
     (s) => s.getOrganizationGroups
   );
+  const supabase = createClient();
 
   const orgGroups = currentOrganization
     ? getOrganizationGroups(currentOrganization.id)
@@ -337,10 +340,73 @@ export default function PasswordSelected({
     }
   };
 
+  const [activeUsers, setActiveUsers] = useState<any[]>([]);
+  const user = useAuthStore((s) => s.user);
+  useEffect(() => {
+    if (!selectedPassword?.id || !user) return;
+
+    const channel = supabase.channel(
+      `password_presence_${selectedPassword.id}`,
+      {
+        config: {
+          presence: {
+            key: user.id,
+          },
+        },
+      }
+    );
+
+    channel
+      .on("presence", { event: "sync" }, () => {
+        const newState = channel.presenceState();
+        const users = Object.values(newState).flat();
+        setActiveUsers(users.filter((u: any) => u.user_id !== user.id));
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await channel.track({
+            user_id: user.id,
+            email: user.email,
+            online_at: new Date().toISOString(),
+          });
+        }
+      });
+
+    return () => {
+      channel.untrack();
+      channel.unsubscribe();
+    };
+  }, [selectedPassword.id, user]);
+
   const canEdit =
     !currentOrganization ||
     currentOrganization.user_role === "admin" ||
     selectedPassword.is_own_password;
+
+  const handleStartEditing = async () => {
+    if (!selectedPassword?.id || !user) return;
+    setOriginalPassword(selectedPassword);
+    setIsEditing(true);
+    const channel = supabase.channel(
+      `password_presence_${selectedPassword.id}`,
+      {
+        config: {
+          presence: {
+            key: user.id,
+          },
+        },
+      }
+    );
+
+    await channel.track({
+      user_id: user.id,
+      email: user.email,
+      isEditing: true,
+    });
+  };
+
+  const editorUser = activeUsers.find((u) => u.isEditing === true);
+  const isLockedBySomeoneElse = !!editorUser;
 
   return (
     <div className="h-full flex flex-col bg-white md:bg-[#F9F9FB]">
@@ -401,10 +467,10 @@ export default function PasswordSelected({
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setOriginalPassword(selectedPassword);
-                  setIsEditing(true);
+                  handleStartEditing();
                 }}
                 className="gap-2 h-9"
+                disabled={isLockedBySomeoneElse}
               >
                 <Pen size={14} />
                 <span className="hidden md:inline">Edit</span>
@@ -412,6 +478,22 @@ export default function PasswordSelected({
             ))}
         </div>
       </div>
+
+      {/* INDICATEUR DE PRÉSENCE */}
+      {activeUsers.length > 0 && (
+        <div className="flex items-center gap-2 mt-4 ml-4 px-2 py-1 bg-amber-50 border border-amber-200 rounded-full animate-pulse">
+          <Users size={14} className="text-amber-600" />
+          <span className="text-[10px] md:text-xs font-medium text-amber-700">
+            {activeUsers.length} personne{activeUsers.length > 1 ? "s" : ""}{" "}
+            consulte ceci
+          </span>
+
+          {/* Optionnel : Tooltip ou mini avatars au survol */}
+          <div className="hidden group-hover:block absolute top-12 bg-white p-2 shadow-lg rounded border text-xs">
+            {activeUsers.map((u) => u.email).join(", ")}
+          </div>
+        </div>
+      )}
 
       {/* --- SCROLLABLE CONTENT --- */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6">

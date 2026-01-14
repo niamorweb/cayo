@@ -32,10 +32,10 @@ export const importAesKeyFromBase64 = async (
 export const encryptWithAes = async (
   data: ArrayBuffer,
   aesKey: CryptoKey
-): Promise<{ cipher: ArrayBuffer; iv: any }> => {
+): Promise<{ cipher: ArrayBuffer; iv: Uint8Array }> => {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const cipher = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
+    { name: "AES-GCM", iv: iv.buffer as ArrayBuffer },
     aesKey,
     data
   );
@@ -47,7 +47,11 @@ export const decryptWithAes = async (
   aesKey: CryptoKey,
   iv: Uint8Array
 ): Promise<ArrayBuffer> => {
-  return crypto.subtle.decrypt({ name: "AES-GCM", iv }, aesKey, cipher);
+  return crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: iv.buffer as ArrayBuffer },
+    aesKey,
+    cipher
+  );
 };
 
 export const importRsaPrivateKey = async (
@@ -115,5 +119,5 @@ export const base64ToBuffer = (base64: string): ArrayBuffer => {
   for (let i = 0; i < len; i++) {
     bytes[i] = binary.charCodeAt(i);
   }
-  return bytes.buffer;
+  return bytes.buffer as ArrayBuffer;
 };

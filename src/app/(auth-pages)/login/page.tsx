@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store/useAuthStore";
-import { decryptAESKey } from "@/lib/encryption_aes";
+import { decryptAESKey } from "@/lib/encryption/aes";
 import { logUserLogin } from "@/lib/log/log-login";
 
 import { Button } from "@/components/ui/button";

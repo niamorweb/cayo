@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { EyeClosed, Eye } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { encryptAESKey, generateAESKey } from "@/lib/encryption_aes";
+import { encryptAESKey, generateAESKey } from "@/lib/encryption/aes";
 import {
   bufferToBase64,
   encryptWithAes,

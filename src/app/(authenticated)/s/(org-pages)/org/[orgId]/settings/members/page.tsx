@@ -60,7 +60,7 @@ import {
 // Logic & Stores
 import { useOrganizationStore } from "@/lib/store/organizationStore";
 import { createClient } from "@/lib/supabase/client";
-import { encryptAESKey, generateAESKey } from "@/lib/encryption_aes";
+import { encryptAESKey, generateAESKey } from "@/lib/encryption/aes";
 import {
   bufferToBase64,
   encryptWithAes,
