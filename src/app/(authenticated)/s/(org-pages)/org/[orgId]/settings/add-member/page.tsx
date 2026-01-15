@@ -118,6 +118,7 @@ export default function Page() {
         personal_iv: encryptedAesKey.iv,
         personal_salt: encryptedAesKey.salt,
         rsa_public_key: publicKeyBase64,
+        // @ts-ignore
         iv_rsa_private_key: bufferToBase64(iv),
         encrypted_rsa_private_key: bufferToBase64(cipher),
       };
