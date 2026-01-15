@@ -41,7 +41,13 @@ import { cn } from "@/lib/utils";
 // --- ZOD SCHEMA ---
 const signupSchema = z.object({
   email: z.string().email("Please enter a valid email address."),
-  password: z.string().min(8, "Password must be at least 8 characters long."),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters long.")
+    .regex(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).*$/,
+      "Password must contain at least one uppercase letter, one lowercase letter, and one number."
+    ),
 });
 
 type SignupSchema = z.infer<typeof signupSchema>;
@@ -115,6 +121,7 @@ export default function SignupPage() {
       const { cipher, iv } = await encryptWithAes(privateKeyBuffer, aesKey);
 
       const encryptedPrivateKeyBase64 = bufferToBase64(cipher);
+      //@ts-ignore
       const ivBase64 = bufferToBase64(iv);
 
       setLoadingStage("saving"); // UX Update: "Finalizing..."
